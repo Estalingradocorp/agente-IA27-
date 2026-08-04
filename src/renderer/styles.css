@@ -763,6 +763,11 @@ body {
   border-color: var(--blue);
 }
 
+.field i.opt-aware {
+  font-style: normal;
+  color: var(--ok);
+}
+
 .inline-row {
   display: flex;
   gap: 8px;

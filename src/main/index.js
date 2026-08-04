@@ -14,6 +14,45 @@ function relay(type, data) {
   }
 }
 
+let splashWindow = null;
+
+function createSplashWindow() {
+  splashWindow = new BrowserWindow({
+    width: 520,
+    height: 360,
+    resizable: false,
+    frame: false,
+    show: false,
+    backgroundColor: "#05070c",
+    alwaysOnTop: false,
+    title: "IA-27 — Estalingrado Corp",
+    webPreferences: {
+      preload: path.join(__dirname, "..", "preload", "splash.js"),
+      contextIsolation: true,
+      nodeIntegration: false,
+    },
+  });
+  splashWindow.loadFile(path.join(__dirname, "..", "renderer", "splash.html"));
+  splashWindow.once("ready-to-show", () => splashWindow.show());
+  splashWindow.on("closed", () => {
+    splashWindow = null;
+  });
+  return splashWindow;
+}
+
+function closeSplash() {
+  if (splashWindow && !splashWindow.isDestroyed()) {
+    splashWindow.close();
+    splashWindow = null;
+  }
+}
+
+function relayStage(stage) {
+  if (splashWindow && !splashWindow.isDestroyed()) {
+    splashWindow.webContents.send("ia27:splash", stage);
+  }
+}
+
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1280,
@@ -34,11 +73,21 @@ function createWindow() {
   });
 
   mainWindow.loadFile(path.join(__dirname, "..", "renderer", "index.html"));
-  mainWindow.once("ready-to-show", () => mainWindow.show());
+  mainWindow.once("ready-to-show", () => {
+    // No se muestra aquí: espera a que core.init() termine (boot).
+  });
   mainWindow.on("closed", () => {
     mainWindow = null;
   });
   mainWindow.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
+  return mainWindow;
+}
+
+function showMainWindow() {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.show();
+  }
+  closeSplash();
 }
 
 function registerIpc() {
@@ -60,9 +109,11 @@ function registerIpc() {
   ipcMain.handle("ia27:getStatus", () => core.getStatus());
   ipcMain.handle("ia27:getSettings", () => core.memory.getSettings());
   ipcMain.handle("ia27:updateSettings", (_e, patch) => core.memory.setSettings(patch));
+  ipcMain.handle("ia27:getHardware", () => core.hardwareProfile || null);
+  ipcMain.handle("ia27:getRecommendation", () => core.recommendation || null);
   ipcMain.handle("ia27:selectModelFile", async () => {
     const result = await dialog.showOpenDialog(mainWindow, {
-      title: "Seleccionar modelo GGUF de Qwen 2.5",
+      title: "Seleccionar modelo GGUF",
       properties: ["openFile"],
       filters: [{ name: "Modelos GGUF", extensions: ["gguf"] }],
     });
@@ -116,11 +167,23 @@ async function boot() {
     },
   });
 
+  core.on("stage", (stage) => relayStage(stage));
+  core.on("hardware", (hw) => {
+    core.hardwareProfile = hw;
+  });
+  core.on("recommendation", (rec) => {
+    core.recommendation = rec;
+  });
+
   for (const ev of ["status", "gen:start", "gen:token", "gen:tool", "gen:done", "gen:error"]) {
     core.on(ev, (data) => relay(ev, data));
   }
 
   registerIpc();
+
+  if (!IS_SMOKE) {
+    createSplashWindow();
+  }
   createWindow();
 
   try {
@@ -134,6 +197,8 @@ async function boot() {
     });
     relay("boot:error", { message: String(err.message || err) });
   }
+
+  showMainWindow();
 
   if (IS_SMOKE) {
     const wc = mainWindow.webContents;

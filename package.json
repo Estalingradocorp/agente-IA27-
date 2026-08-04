@@ -1,6 +1,6 @@
 {
   "name": "ia27",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "IA-27 — Asistente virtual local de Estalingrado Corp",
   "main": "src/main/index.js",
   "author": "Estalingrado Corp",

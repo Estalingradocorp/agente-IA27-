@@ -89,6 +89,18 @@ class WorkerBridge {
         }
         break;
       }
+      case "progress":
+        this._emit("progress", msg);
+        break;
+      case "stage":
+        this._emit("stage", msg);
+        break;
+      case "ready":
+        this._emit("ready", msg);
+        break;
+      case "error":
+        this._emit("error", msg);
+        break;
       default:
         this._emit(msg.type, msg);
     }

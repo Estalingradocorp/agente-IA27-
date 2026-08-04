@@ -13,6 +13,8 @@ contextBridge.exposeInMainWorld("IA27", {
   getStatus: () => ipcRenderer.invoke("ia27:getStatus"),
   getSettings: () => ipcRenderer.invoke("ia27:getSettings"),
   updateSettings: (patch) => ipcRenderer.invoke("ia27:updateSettings", patch),
+  getHardware: () => ipcRenderer.invoke("ia27:getHardware"),
+  getRecommendation: () => ipcRenderer.invoke("ia27:getRecommendation"),
   selectModelFile: () => ipcRenderer.invoke("ia27:selectModelFile"),
   relaunch: () => ipcRenderer.invoke("ia27:relaunch"),
   openExternal: (url) => ipcRenderer.invoke("ia27:openExternal", url),

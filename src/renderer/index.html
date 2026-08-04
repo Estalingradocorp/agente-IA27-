@@ -120,10 +120,14 @@
         <label class="field field-wide">
           <span>Ruta del modelo GGUF</span>
           <div class="inline-row">
-            <input type="text" id="set-modelPath" placeholder="Auto: detecta Qwen 2.5 local" />
+            <input type="text" id="set-modelPath" placeholder="Auto: detecta GGUF en models/" />
             <button id="btn-browse-model" class="btn-ghost">Examinar…</button>
             <button id="btn-reset-model" class="btn-ghost" title="Volver a detección automática">↺</button>
           </div>
+        </label>
+        <label class="field field-wide">
+          <span>Modelo a utilizar <i id="set-model-reco"></i></span>
+          <select id="set-modelTag"></select>
         </label>
       </div>
       <p class="modal-note" id="settings-note"></p>

@@ -1,6 +1,8 @@
 const { EventEmitter } = require("node:events");
 const path = require("node:path");
-const { resolveQwenModel } = require("./modelResolver");
+const { profile: profileHardware } = require("./hardware");
+const { scanModelDir, resolveModel } = require("./modelResolver");
+const { recommend: recommendModel } = require("./modelRecommender");
 const { MemoryStore } = require("./memory");
 const { Agent } = require("./agent");
 const { WorkerBridge } = require("./bridge");
@@ -11,6 +13,7 @@ class IACore extends EventEmitter {
   constructor({ dataDir, openPath, consent }) {
     super();
     this.dataDir = dataDir;
+    this.modelsDir = path.join(dataDir, "models");
     this.memory = new MemoryStore(dataDir);
     this.bridge = null;
     this.agent = null;
@@ -19,27 +22,72 @@ class IACore extends EventEmitter {
     this.ready = false;
     this.state = "idle";
     this.openPath = openPath;
-    this.consent = consent;
+    this.consentPrompt = consent;
+  }
+
+  emitStage(stage, message, progress) {
+    this.emit("stage", { stage, message, progress });
   }
 
   async init() {
     this.state = "loading";
+
+    this.emitStage("hardware", "Analizando hardware del sistema…", 0.01);
+    const hw = profileHardware(this.dataDir);
+    this.emitStage("hardware", "Hardware detectado: " + hw.cpu.model.split(" ")[0] + ", " + hw.ram.totalFormatted, 0.04);
+
+    this.emitStage("scanning", "Escaneando modelos disponibles…", 0.06);
     const settings = this.memory.getSettings();
-    const resolved = resolveQwenModel({
-      preferredTag: "7b",
-      modelPathOverride: settings.modelPath,
-    });
-    this.resolvedModel = resolved;
-    this.emit("status", {
-      state: "loading",
-      message: "Modelo localizado: " + resolved.tag,
-      model: resolved.tag,
-    });
+    const modelsDir = path.join(this.dataDir, "models");
+
+    const availableModels = scanModelDir(modelsDir);
+    this.availableModels = availableModels;
+    this.emitStage("scanning", availableModels.length + " modelo(s) encontrado(s)", 0.10);
+
+    this.emitStage("selecting", "Seleccionando modelo \u00f3ptimo seg\u00fan hardware…", 0.12);
+
+    let recommendation;
+    if (availableModels.length > 0) {
+      recommendation = recommendModel(availableModels, hw);
+    } else {
+      recommendation = { recommended: null, compatible: [], reason: "No se encontraron modelos en la carpeta local." };
+    }
+
+    const preferredModel = settings.modelTag || (recommendation.recommended ? recommendation.recommended.filename : null);
+    this.emit("hardware", hw);
+    this.emit("recommendation", recommendation);
+
+    if (recommendation.recommended) {
+      this.emitStage("selecting", recommendation.reason, 0.15);
+    } else {
+      this.emitStage("error", recommendation.reason, 0);
+      this.emit("status", { state: "error", message: recommendation.reason });
+      return;
+    }
+
+    try {
+      const resolved = resolveModel({
+        modelsDir,
+        preferredModel,
+        modelPathOverride: settings.modelPath,
+      });
+      this.resolvedModel = resolved;
+      this.emitStage("selecting", "Modelo seleccionado: " + resolved.tag, 0.18);
+    } catch (err) {
+      this.emitStage("error", "Error al seleccionar modelo: " + err.message, 0);
+      this.emit("status", { state: "error", message: err.message });
+      return;
+    }
 
     this.bridge = new WorkerBridge();
-    this.bridge.on("status", (m) => this.emit("status", { ...m, model: resolved.tag }));
+    this.bridge.on("progress", (m) => {
+      this.emit("stage", { stage: "loading", progress: 0.20 + (m.progress || 0), message: "Cargando modelo…" });
+    });
+    this.bridge.on("stage", (m) => {
+      this.emit("stage", { stage: m.stage || "loading", message: m.message });
+    });
     this.bridge.on("consent:request", async (m) => {
-      const approved = await this.consent(m.command);
+      const approved = await this.consentPrompt(m.command);
       this.bridge.respondConsent(m.id, approved);
     });
     this.bridge.on("open:request", async (m) => {
@@ -48,12 +96,17 @@ class IACore extends EventEmitter {
     });
 
     this.bridge.start(path.join(__dirname, "worker.js"));
+
+    this.emitStage("loading", "Inicializando motor neuronal…", 0.20);
+
     const info = await this.bridge.init({
-      modelPath: resolved.modelPath,
+      modelPath: this.resolvedModel.modelPath,
       settings,
       dataDir: this.dataDir,
     });
     this.modelInfo = info.info || null;
+
+    this.emitStage("ready", "Modelo listo", 1.0);
 
     this.agent = new Agent({
       bridge: this.bridge,
@@ -63,11 +116,11 @@ class IACore extends EventEmitter {
 
     this.ready = true;
     this.state = "ready";
-    this.emit("status", { state: "ready", model: resolved.tag });
+    this.emit("status", { state: "ready", model: this.resolvedModel.tag });
   }
 
   async send(payload) {
-    if (!this.agent) throw new Error("El núcleo neuronal no está listo.");
+    if (!this.agent) throw new Error("El n\u00facleo neuronal no est\u00e1 listo.");
     return this.agent.send(payload);
   }
 
@@ -87,6 +140,7 @@ class IACore extends EventEmitter {
       modelSource: this.resolvedModel?.source || null,
       modelPath: this.resolvedModel?.modelPath || null,
       modelInfo: this.modelInfo,
+      availableModels: this.availableModels || this.resolvedModel?.availableModels || [],
       idleLine: this.ready ? idleLine() : null,
     };
   }
@@ -99,7 +153,7 @@ class IACore extends EventEmitter {
     const doc = await extractText(filePath);
     const content =
       "[Documento adjunto: " + doc.nombre + "]\n\n" + doc.texto +
-      "\n\nAnaliza este documento y resume lo esencial: propósito, datos clave, estructura y, si aplica, problemas o decisiones importantes.";
+      "\n\nAnaliza este documento y resume lo esencial: prop\u00f3sito, datos clave, estructura y, si aplica, problemas o decisiones importantes.";
     const result = await this.agent.send({
       conversationId,
       message: content,

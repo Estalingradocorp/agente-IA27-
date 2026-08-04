@@ -79,19 +79,10 @@ async function init({ modelPath, settings, dataDir: dd }) {
   engine = new LLMEngine({
     modelPath,
     settings,
-    onProgress: (p) => send("status", { state: "loading", progress: p }),
-    onStatus: (m) => send("status", { state: "loading", message: m }),
+    onProgress: (p) => send("progress", { progress: p }),
+    onStage: (m) => send("stage", { message: m }),
   });
   await engine.init();
-  send("status", { state: "loading", message: "Calentando núcleo neuronal…" });
-  try {
-    const { LlamaCompletion } = engine.bindings;
-    const warmup = new LlamaCompletion({ contextSequence: engine.sequence });
-    await warmup.generateCompletion("Hola", { maxTokens: 2 });
-  } catch {
-    // calentamiento opcional
-  }
-  send("status", { state: "ready" });
   send("ready", { info: engine.getModelInfo() });
 }
 
@@ -162,7 +153,7 @@ port.onMessage(async (msg) => {
         break;
       case "cancel":
         if (abortController) {
-          abortController.abort(new Error("Generación cancelada por el operador."));
+          abortController.abort(new Error("Generaci\u00f3n cancelada por el operador."));
         }
         break;
       case "consent:response": {

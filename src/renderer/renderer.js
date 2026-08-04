@@ -339,7 +339,7 @@
 
     if (data.state === "ready") {
       el.classList.add("ready");
-      text.textContent = "en línea · " + (data.model || "qwen2.5");
+      text.textContent = "en línea · " + (data.model || "local");
       if (!state.readyOnce) {
         state.readyOnce = true;
         startFirstConversation();
@@ -405,7 +405,50 @@
     $("set-threads").value = s.threads != null ? s.threads : 0;
     $("set-autoApprove").checked = !!s.autoApproveCommands;
     $("set-modelPath").value = s.modelPath || "";
+    populateModelSelector(s.modelTag);
     $("settings-modal").classList.remove("hidden");
+  }
+
+  async function populateModelSelector(currentTag) {
+    const status = await api.getStatus();
+    const available = (status && status.availableModels) || [];
+    const reco = await api.getRecommendation().catch(() => null);
+    const recoName = reco && reco.recommended ? reco.recommended.filename : null;
+    const select = $("set-modelTag");
+    select.innerHTML = "";
+
+    if (available.length === 0) {
+      const opt = document.createElement("option");
+      opt.value = "";
+      opt.textContent = "Sin modelos detectados";
+      opt.disabled = true;
+      select.appendChild(opt);
+      updateRecoLabel(recoName);
+      return;
+    }
+
+    for (const m of available) {
+      const opt = document.createElement("option");
+      opt.value = m.filename;
+      const label = m.filename + (m.paramLabel ? " · " + m.paramLabel : "") +
+        (m.sizeFormatted ? " · " + m.sizeFormatted : "");
+      opt.textContent = label + (recoName === m.filename ? "  ✦ (Recomendado)" : "");
+      select.appendChild(opt);
+    }
+
+    if (currentTag) {
+      const found = available.some((m) => m.filename === currentTag);
+      if (found) select.value = currentTag;
+    }
+
+    updateRecoLabel(recoName);
+  }
+
+  function updateRecoLabel(recoName) {
+    const el = $("set-model-reco");
+    if (el && recoName) {
+      el.textContent = " — Recomendado para este equipo: " + recoName;
+    }
   }
 
   async function saveSettings() {
@@ -417,6 +460,7 @@
       threads: Math.max(0, Number($("set-threads").value) || 0),
       autoApproveCommands: $("set-autoApprove").checked,
       modelPath: $("set-modelPath").value.trim() || undefined,
+      modelTag: $("set-modelTag").value || undefined,
     };
     await api.updateSettings(patch);
     closeSettings();
