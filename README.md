@@ -102,9 +102,14 @@ Qwen 1.5B pasa de ~3 a **~30 tokens/s**.
 ## Uso
 
 ### Versión lista para usar (sin terminal)
-1. Descarga `IA-27-portable.exe` o ejecuta el instalador `IA-27-Setup-*.exe`.
-2. Coloca al menos un archivo `.gguf` en `ia27-data/models/`.
-3. Ábrela. Verás la pantalla de carga mientras se analiza el hardware y se
+
+Descarga la última versión desde [Releases](https://github.com/Estalingradocorp/agente-IA27-/releases/latest):
+
+- **`IA-27-portable.exe`** — versión portable, sin instalación (incluye aceleración por GPU Vulkan).
+- **`IA-27-Setup-*.exe`** — instalador para Windows.
+
+1. Coloca al menos un archivo `.gguf` en `ia27-data/models/`.
+2. Ábrela. Verás la pantalla de carga mientras se analiza el hardware y se
    selecciona el modelo. Luego escribe a IA-27 y usa el botón 📎 para adjuntar
    documentos.
 
