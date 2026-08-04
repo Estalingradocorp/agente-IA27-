@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta
+    http-equiv="Content-Security-Policy"
+    content="default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; script-src 'self'; font-src 'self'"
+  />
+  <title>IA-27 — Estalingrado Corp</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div id="app">
+    <aside id="sidebar">
+      <div class="brand">
+        <div class="brand-logo">✹</div>
+        <div class="brand-text">
+          <span class="brand-corp">ESTALINGRADO CORP</span>
+          <span class="brand-name">IA-27</span>
+        </div>
+      </div>
+
+      <button id="btn-new" class="btn-new" title="Abrir nueva conversación">
+        <span class="btn-new-icon">＋</span> Nueva conversación
+      </button>
+
+      <nav id="conv-list" aria-label="Historial de conversaciones"></nav>
+
+      <footer class="sidebar-foot">
+        <button id="btn-settings" class="btn-ghost">⚙ Ajustes</button>
+        <div id="model-status" class="model-status">
+          <span class="dot"></span>
+          <span class="status-text">inicializando…</span>
+        </div>
+        <button id="btn-company" class="company-link" title="Más información sobre Estalingrado Corp">
+          ESTALINGRADO CORP · estalingradocorp.qzz.io
+        </button>
+      </footer>
+    </aside>
+
+    <main id="main">
+      <section id="galaxy-wrap">
+        <canvas id="galaxy"></canvas>
+        <div class="galaxy-overlay">
+          <div class="galaxy-title">ESTALINGRADO CORP</div>
+          <div class="galaxy-sub">SECTOR IA-27 // NÚCLEO RESIDENTE</div>
+        </div>
+      </section>
+
+      <header id="chat-header">
+        <div id="conv-title">Nueva conversación</div>
+        <div class="header-actions">
+          <button id="btn-attach" class="btn-ghost" title="Adjuntar un documento para análisis">📎 Adjuntar</button>
+          <button id="btn-cancel" class="btn-ghost danger hidden" title="Detener la generación">■ Detener</button>
+        </div>
+      </header>
+
+      <section id="messages" aria-live="polite"></section>
+
+      <footer id="composer">
+        <textarea
+          id="input"
+          rows="1"
+          placeholder="Escribe a IA-27…  (Enter para enviar, Shift+Enter para salto de línea)"
+        ></textarea>
+        <button id="btn-send" class="btn-send" title="Enviar">➤</button>
+      </footer>
+    </main>
+  </div>
+
+  <input type="file" id="file-input" hidden />
+
+  <div id="consent-modal" class="modal hidden">
+    <div class="modal-card">
+      <div class="modal-title">Confirmación del operador</div>
+      <p class="modal-text">
+        IA-27 quiere ejecutar el siguiente comando en tu sistema:
+      </p>
+      <pre class="modal-command" id="consent-command"></pre>
+      <div class="modal-actions">
+        <button id="consent-deny" class="btn-ghost">Rechazar</button>
+        <button id="consent-approve" class="btn-primary">Permitir ejecución</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="settings-modal" class="modal hidden">
+    <div class="modal-card settings-card">
+      <div class="modal-title">Ajustes de IA-27</div>
+      <div class="settings-grid">
+        <label class="field">
+          <span>Temperatura <b id="val-temperature"></b></span>
+          <input type="range" id="set-temperature" min="0" max="2" step="0.1" />
+        </label>
+        <label class="field">
+          <span>Máx. tokens de respuesta</span>
+          <input type="number" id="set-maxTokens" min="64" max="4096" step="64" />
+        </label>
+        <label class="field">
+          <span>Ventana de contexto</span>
+          <select id="set-contextSize">
+            <option value="2048">2048 (ligero)</option>
+            <option value="4096">4096 (recomendado)</option>
+            <option value="8192">8192</option>
+            <option value="16384">16384 (requiere más RAM)</option>
+          </select>
+        </label>
+        <label class="field">
+          <span>Capas GPU <i id="hint-gpu"></i></span>
+          <input type="number" id="set-gpuLayers" min="0" max="32" step="1" />
+        </label>
+        <label class="field">
+          <span>Hilos de CPU <i>(0 = automático)</i></span>
+          <input type="number" id="set-threads" min="0" max="16" step="1" />
+        </label>
+        <label class="field field-check">
+          <input type="checkbox" id="set-autoApprove" />
+          <span>Permitir comandos del sistema sin preguntar (no recomendado)</span>
+        </label>
+        <label class="field field-wide">
+          <span>Ruta del modelo GGUF</span>
+          <div class="inline-row">
+            <input type="text" id="set-modelPath" placeholder="Auto: detecta Qwen 2.5 local" />
+            <button id="btn-browse-model" class="btn-ghost">Examinar…</button>
+            <button id="btn-reset-model" class="btn-ghost" title="Volver a detección automática">↺</button>
+          </div>
+        </label>
+      </div>
+      <p class="modal-note" id="settings-note"></p>
+      <div class="modal-actions">
+        <button id="btn-restart-app" class="btn-primary hidden">Reiniciar ahora</button>
+        <button id="settings-close" class="btn-primary">Guardar y cerrar</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="vendor/bundle.js"></script>
+  <script src="galaxy.js"></script>
+  <script src="renderer.js"></script>
+</body>
+</html>

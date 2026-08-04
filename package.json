@@ -1,0 +1,77 @@
+{
+  "name": "ia27",
+  "version": "1.0.0",
+  "description": "IA-27 — Asistente virtual local de Estalingrado Corp",
+  "main": "src/main/index.js",
+  "author": "Estalingrado Corp",
+  "license": "MIT",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "vendor": "node scripts/build-vendor.js",
+    "smoke": "node scripts/smoke.js",
+    "rebuild": "npx --no-install node-llama-cpp electronRebuild",
+    "build:exe": "electron-builder --win",
+    "build:portable": "electron-builder --win portable",
+    "build:installer": "electron-builder --win nsis"
+  },
+  "build": {
+    "appId": "corp.estalingrado.ia27",
+    "productName": "IA-27",
+    "copyright": "Estalingrado Corp",
+    "directories": {
+      "output": "dist",
+      "buildResources": "assets"
+    },
+    "files": [
+      "src/**/*",
+      "assets/**/*",
+      "package.json",
+      "!node_modules/node-llama-cpp/llama/llama.cpp/**",
+      "!node_modules/node-llama-cpp/llama/xpack/**",
+      "!node_modules/node-llama-cpp/llama/toolchains/**",
+      "!node_modules/node-llama-cpp/llama/cmake/**",
+      "!node_modules/node-llama-cpp/llama/localBuilds/**",
+      "!node_modules/@node-llama-cpp/win-arm64/**",
+      "!node_modules/@node-llama-cpp/win-x64-cuda/**",
+      "!node_modules/@node-llama-cpp/win-x64-cuda-ext/**",
+      "!node_modules/@node-llama-cpp/win-x64-vulkan/**",
+      "!node_modules/@node-llama-cpp/linux-*/**",
+      "!node_modules/@node-llama-cpp/mac-*/**"
+    ],
+    "asar": true,
+    "asarUnpack": [
+      "node_modules/@node-llama-cpp/win-x64/**"
+    ],
+    "win": {
+      "icon": "assets/icon.ico",
+      "target": [
+        "portable",
+        "nsis"
+      ],
+      "artifactName": "IA-27-${version}.${ext}"
+    },
+    "portable": {
+      "artifactName": "IA-27-portable.exe"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "artifactName": "IA-27-Setup-${version}.exe"
+    },
+    "npmRebuild": false
+  },
+  "dependencies": {
+    "highlight.js": "^11.11.1",
+    "mammoth": "^1.12.0",
+    "marked": "^18.0.9",
+    "node-llama-cpp": "^3.19.1",
+    "pdf-parse": "^2.4.5"
+  },
+  "devDependencies": {
+    "electron": "^43.2.0",
+    "electron-builder": "^26.15.3",
+    "esbuild": "^0.28.1"
+  }
+}
