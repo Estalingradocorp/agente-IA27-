@@ -86,6 +86,17 @@ curl -L -o "%APPDATA%\ia27\ia27-data\models\Qwen2.5-3B-Instruct-Q4_K_M.gguf" `
 > coloques en `models/`. Todos los modelos corren **100 % offline** en CPU;
 > si tenés GPU NVIDIA, podés activar capas GPU en ⚙ Ajustes para acelerar.
 
+### Aceleración por GPU (Vulkan)
+
+IA-27 usa la **GPU por Vulkan** cuando activás las capas GPU en ⚙ Ajustes
+(`gpuLayers > 0`). No requiere instalar CUDA ni compilar nada: los binarios
+Vulkan vienen incluidos en la app. En una GTX 1050 Ti, por ejemplo, un modelo
+Qwen 1.5B pasa de ~3 a **~30 tokens/s**.
+
+- Detecta automáticamente **Vulkan → CUDA → CPU** en ese orden.
+- Si el modelo no cabe en la VRAM, vuelve a CPU automáticamente sin romper.
+- Verificá el consumo de VRAM con `nvidia-smi` para confirmar que la GPU se usa.
+
 ---
 
 ## Uso

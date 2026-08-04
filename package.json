@@ -35,13 +35,13 @@
       "!node_modules/@node-llama-cpp/win-arm64/**",
       "!node_modules/@node-llama-cpp/win-x64-cuda/**",
       "!node_modules/@node-llama-cpp/win-x64-cuda-ext/**",
-      "!node_modules/@node-llama-cpp/win-x64-vulkan/**",
       "!node_modules/@node-llama-cpp/linux-*/**",
       "!node_modules/@node-llama-cpp/mac-*/**"
     ],
     "asar": true,
     "asarUnpack": [
-      "node_modules/@node-llama-cpp/win-x64/**"
+      "node_modules/@node-llama-cpp/win-x64/**",
+      "node_modules/@node-llama-cpp/win-x64-vulkan/**"
     ],
     "win": {
       "icon": "assets/icon.ico",

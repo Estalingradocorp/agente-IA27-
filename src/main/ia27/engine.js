@@ -33,18 +33,22 @@ class LLMEngine {
     this.onProgress?.(0.02);
 
     let gpuUsed = false;
-    try {
-      this.llama = await getLlama(
-        wantGpu ? { gpu: "cuda" } : { gpu: { type: "auto", exclude: ["cuda", "vulkan"] } }
-      );
-      gpuUsed = wantGpu;
-    } catch {
-      if (wantGpu) {
-        this.onStage?.("GPU no disponible; pasando a CPU.");
-        this.llama = await getLlama({ gpu: { type: "auto", exclude: ["cuda", "vulkan"] } });
-      } else {
-        throw err;
+    const gpuKinds = ["vulkan", "cuda"];
+    let gpuErr = null;
+    for (const gpuKind of gpuKinds) {
+      if (!wantGpu) break;
+      try {
+        this.llama = await getLlama({ gpu: gpuKind });
+        gpuUsed = true;
+        break;
+      } catch (err) {
+        gpuErr = err;
+        gpuUsed = false;
       }
+    }
+    if (!gpuUsed) {
+      this.llama = await getLlama({ gpu: { type: "auto", exclude: ["cuda", "vulkan"] } });
+      if (wantGpu) this.onStage?.("GPU no disponible; usando CPU.");
     }
 
     this.onStage?.("Cargando modelo de lenguaje…");
