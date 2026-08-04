@@ -561,7 +561,7 @@
   $("btn-attach").addEventListener("click", () => $("file-input").click());
   $("file-input").addEventListener("change", (e) => {
     const file = e.target.files && e.target.files[0];
-    if (file) attachFile(file.path);
+    if (file) attachFile(api.getPathForFile(file));
     e.target.value = "";
   });
 
@@ -569,7 +569,10 @@
   document.addEventListener("drop", (e) => {
     e.preventDefault();
     const file = e.dataTransfer.files && e.dataTransfer.files[0];
-    if (file && file.path) attachFile(file.path);
+    if (file) {
+      const p = api.getPathForFile(file);
+      if (p) attachFile(p);
+    }
   });
 
   $("consent-approve").addEventListener("click", () => respondConsent(true));

@@ -20,8 +20,12 @@ adecuado**, equilibrando velocidad, consumo de recursos y calidad.
   - Abrir archivos o carpetas.
   - Ejecutar comandos de Windows **con consentimiento explícito** del operador.
   - Notas persistentes en el cuaderno local.
-- **Análisis de documentos**: TXT, Markdown, código, CSV, JSON, PDF y DOCX
-  (por botón o arrastrando el archivo).
+- **Análisis de documentos**: TXT, Markdown, código, HTML, CSS, CSV, JSON, PDF y
+  DOCX (por botón o arrastrando el archivo).
+- **Herramientas (tools) siempre activas** para que IA-27 trabaje sobre tu
+  equipo: fecha/hora, información del sistema, listar/leer/buscar/abrir
+  archivos, ejecutar comandos (con consentimiento), cuaderno de notas, extraer
+  texto de documentos, escribir/editar archivos e información de archivos.
 - **Ayuda de programación**: respuestas con Markdown y resaltado de código.
 - **Memoria de conversaciones**: historial persistente con búsqueda lateral,
   nueva conversación, renombrar y eliminar.

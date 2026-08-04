@@ -1,6 +1,7 @@
-const { contextBridge, ipcRenderer } = require("electron");
+const { contextBridge, ipcRenderer, webUtils } = require("electron");
 
 contextBridge.exposeInMainWorld("IA27", {
+  getPathForFile: (file) => webUtils.getPathForFile(file),
   listConversations: () => ipcRenderer.invoke("ia27:listConversations"),
   createConversation: () => ipcRenderer.invoke("ia27:createConversation"),
   getConversation: (id) => ipcRenderer.invoke("ia27:getConversation", id),

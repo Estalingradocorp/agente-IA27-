@@ -1,17 +1,5 @@
 const { SYSTEM_PROMPT } = require("./persona");
 
-const TOOL_INTENT = new RegExp(
-  [
-    "hora|fecha|fechas?",
-    "sistema|ram|memoria|cpu|procesador|disco|unidad|hostname|usuario|encendido|batería|temperatura",
-    "listar|directorio|carpeta|archivo|archivos|abrir|leer|buscar|explorar|renombrar|mover|copiar|borrar",
-    "ejecutar|comando|terminal|cmd|powershell",
-    "nota|guardar|recordar|anotar",
-    "muéstrame|muestrame|revisa|consulta|busca|abre",
-  ].join("|"),
-  "i"
-);
-
 class Agent {
   constructor({ bridge, memory, emit }) {
     this.bridge = bridge;
@@ -29,10 +17,6 @@ class Agent {
       repeatPenalty: { penalty: Number(s.repeatPenalty ?? 1.1) },
       maxTokens: Number(s.maxTokens ?? 1024),
     };
-  }
-
-  _needsTools(message) {
-    return TOOL_INTENT.test(message);
   }
 
   _historyItems(conversation) {
@@ -64,7 +48,7 @@ class Agent {
         systemPrompt: SYSTEM_PROMPT,
         message,
         sampling: this.sampling,
-        useTools: this._needsTools(message),
+        useTools: true,
         onToken: (m) => this.emit("gen:token", { conversationId, text: m.text }),
         onTool: (m) => this.emit("gen:tool", { conversationId, name: m.name, state: m.state, preview: m.preview }),
       });

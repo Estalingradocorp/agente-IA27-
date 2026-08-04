@@ -175,6 +175,28 @@ function appendNote(dataDir, content) {
   return "Nota guardada en " + file;
 }
 
+function fileInfo(filePath) {
+  const stat = fs.statSync(filePath);
+  return {
+    nombre: path.basename(filePath),
+    ruta: filePath,
+    extension: path.extname(filePath).toLowerCase(),
+    tipo: stat.isDirectory() ? "carpeta" : "archivo",
+    tamano: formatBytes(stat.size),
+    bytes: stat.size,
+    modificado: stat.mtime ? stat.mtime.toISOString() : null,
+  };
+}
+
+function writeFileSafely(filePath, content, { overwrite = true } = {}) {
+  const abs = path.resolve(filePath);
+  if (fs.existsSync(abs) && !overwrite) throw new Error("El archivo ya existe: " + abs);
+  const dir = path.dirname(abs);
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(abs, String(content ?? ""), "utf8");
+  return "Archivo guardado en " + abs + " (" + formatBytes(fs.statSync(abs).size) + ")";
+}
+
 function buildToolHandlers(ctx) {
   const { emit, consent, openPath, dataDir } = ctx;
 
@@ -280,6 +302,55 @@ function buildToolHandlers(ctx) {
         return appendNote(dataDir, texto);
       },
     },
+    leer_documento: {
+      description: "Extraer texto de un documento (PDF, DOCX, HTML, CSS, TXT, Markdown, JSON, CSV, código).",
+      params: {
+        type: "object",
+        properties: {
+          ruta: { type: "string", description: "Ruta absoluta del documento." },
+        },
+        required: ["ruta"],
+      },
+      handler: async ({ ruta }) => {
+        emit("tool", { name: "leer_documento", state: "running", preview: ruta });
+        const { extractText } = require("./documents");
+        const doc = await extractText(ruta);
+        emit("tool", { name: "leer_documento", state: "done", preview: ruta });
+        return "Documento: " + doc.nombre + " (" + doc.extension + ", " + formatBytes(doc.tamano) + ")\n\n" + doc.texto;
+      },
+    },
+    informacion_archivo: {
+      description: "Obtener tamaño, tipo y fecha de modificación de un archivo o carpeta.",
+      params: {
+        type: "object",
+        properties: { ruta: { type: "string", description: "Ruta absoluta." } },
+        required: ["ruta"],
+      },
+      handler: async ({ ruta }) => {
+        emit("tool", { name: "informacion_archivo", state: "done", preview: ruta });
+        return JSON.stringify(fileInfo(ruta), null, 2);
+      },
+    },
+    escribir_archivo: {
+      description: "Crear o reescribir un archivo de texto con el contenido indicado (requiere consentimiento).",
+      params: {
+        type: "object",
+        properties: {
+          ruta: { type: "string", description: "Ruta absoluta donde guardar el archivo." },
+          contenido: { type: "string", description: "Contenido completo del archivo." },
+          sobreescribir: { type: "boolean", description: "Si true, reemplaza un archivo existente (por defecto true)." },
+        },
+        required: ["ruta", "contenido"],
+      },
+      handler: async ({ ruta, contenido, sobreescribir }) => {
+        const ok = await consent("Escribir archivo: " + ruta);
+        if (!ok) return "El operador rechazó escribir el archivo.";
+        emit("tool", { name: "escribir_archivo", state: "running", preview: ruta });
+        const out = writeFileSafely(ruta, contenido, { overwrite: sobreescribir !== false });
+        emit("tool", { name: "escribir_archivo", state: "done", preview: ruta });
+        return out;
+      },
+    },
   };
 
   return tools;
@@ -294,4 +365,6 @@ module.exports = {
   systemInfo,
   currentDateTime,
   formatBytes,
+  fileInfo,
+  writeFileSafely,
 };
