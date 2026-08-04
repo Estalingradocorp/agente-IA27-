@@ -216,7 +216,7 @@ async function boot() {
           const reply = await Promise.race([
             core.send({
               conversationId: conv.id,
-              message: "Responde solo con la palabra: LISTO",
+              message: "Saluda brevemente y di quién eres.",
             }),
             new Promise((_, rej) => setTimeout(() => rej(new Error("send timeout")), 180000)),
           ]);
