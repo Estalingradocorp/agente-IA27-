@@ -403,6 +403,9 @@
     $("set-contextSize").value = s.contextSize != null ? s.contextSize : 4096;
     $("set-gpuLayers").value = s.gpuLayers != null ? s.gpuLayers : 0;
     $("set-threads").value = s.threads != null ? s.threads : 0;
+    $("set-mmap").value = s.mmap !== false ? "true" : "false";
+    $("set-perfil").value = s.perfil || "auto";
+    $("set-encriptar").checked = !!s.encriptar;
     $("set-autoApprove").checked = !!s.autoApproveCommands;
     $("set-modelPath").value = s.modelPath || "";
     populateModelSelector(s.modelTag);
@@ -458,6 +461,9 @@
       contextSize: Number($("set-contextSize").value),
       gpuLayers: Math.max(0, Number($("set-gpuLayers").value) || 0),
       threads: Math.max(0, Number($("set-threads").value) || 0),
+      mmap: $("set-mmap").value !== "false",
+      perfil: $("set-perfil").value || "auto",
+      encriptar: $("set-encriptar").checked,
       autoApproveCommands: $("set-autoApprove").checked,
       modelPath: $("set-modelPath").value.trim() || undefined,
       modelTag: $("set-modelTag").value || undefined,

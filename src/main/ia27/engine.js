@@ -10,12 +10,33 @@ const DEFAULT_SETTINGS = {
   topP: 0.9,
   maxTokens: 1024,
   repeatPenalty: 1.1,
+  mmap: true,
+  perfil: "auto",
 };
+
+const PERFILES = {
+  "ligero": { threads: 2, contextSize: 2048, gpuLayers: 0, batchSize: 256, mmap: true },
+  "equilibrado": { threads: 4, contextSize: 4096, gpuLayers: 0, batchSize: 512, mmap: false },
+  "potente": { threads: 0, contextSize: 8192, gpuLayers: 99, batchSize: 512, mmap: false },
+};
+
+function aplicarPerfil(settings) {
+  const perfil = (settings.perfil || "auto").toLowerCase();
+  const preset = PERFILES[perfil];
+  if (!preset) return settings;
+  const merged = { ...settings };
+  for (const [k, v] of Object.entries(preset)) {
+    if (settings[k] == null || settings[k] === 0 || settings[k] === false) {
+      merged[k] = v;
+    }
+  }
+  return merged;
+}
 
 class LLMEngine {
   constructor({ modelPath, settings = {}, onProgress, onStage }) {
     this.modelPath = modelPath;
-    this.settings = { ...DEFAULT_SETTINGS, ...settings };
+    this.settings = aplicarPerfil({ ...DEFAULT_SETTINGS, ...settings });
     this.onProgress = onProgress;
     this.onStage = onStage;
     this.bindings = null;
@@ -55,7 +76,7 @@ class LLMEngine {
     this.onProgress?.(0.05);
 
     const modelName = path.basename(this.modelPath);
-    const useMmap = this.useMmapOverride ?? "auto";
+    const useMmap = this.settings.mmap === false ? false : "auto";
 
     try {
       this.model = await this.llama.loadModel({
@@ -135,4 +156,4 @@ class LLMEngine {
   }
 }
 
-module.exports = { LLMEngine, DEFAULT_SETTINGS };
+module.exports = { LLMEngine, DEFAULT_SETTINGS, PERFILES, aplicarPerfil };

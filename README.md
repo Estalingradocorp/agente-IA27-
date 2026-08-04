@@ -32,7 +32,13 @@ adecuado**, equilibrando velocidad, consumo de recursos y calidad.
 - **Optimización automática**: detecta el hardware y sugiere el modelo GGUF con
   mejor relación velocidad/consumo/calidad, marcándolo como *(Recomendado)*.
 - **Ajustes**: temperatura, tokens máximos, ventana de contexto, hilos de CPU,
-  capas GPU (opcional), modelo a usar y ruta del modelo.
+  capas GPU, mmap (carga en RAM o disco), modelo a usar y ruta del modelo.
+- **Perfiles de rendimiento** (⚙ Ajustes): Auto / Ligero / Equilibrado / Potente.
+  Ajustan automáticamente hilos, contexto, capas GPU y modo de carga según tu
+  presupuesto computacional.
+- **Encriptación de conversaciones** en reposo (⚙ Ajustes): AES-256-GCM con
+  clave derivada del equipo, para que los archivos locales sean ilegibles fuera
+  de tu máquina.
 - **Cambio de modelo en Ajustes**: un desplegable con todos los GGUF detectados,
   sin necesidad de modificar el código.
 - **Totalmente offline**: el modelo se carga desde una carpeta local

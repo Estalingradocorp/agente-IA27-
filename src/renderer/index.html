@@ -113,6 +113,26 @@
           <span>Hilos de CPU <i>(0 = automático)</i></span>
           <input type="number" id="set-threads" min="0" max="16" step="1" />
         </label>
+        <label class="field">
+          <span>Carga del modelo en RAM <i>(rápido, requiere más RAM)</i></span>
+          <select id="set-mmap">
+            <option value="true">Mmap (auto, usa disco)</option>
+            <option value="false">Cargar todo en RAM</option>
+          </select>
+        </label>
+        <label class="field">
+          <span>Perfil de rendimiento</span>
+          <select id="set-perfil">
+            <option value="auto">Auto (detectar hardware)</option>
+            <option value="ligero">Ligero</option>
+            <option value="equilibrado">Equilibrado</option>
+            <option value="potente">Potente</option>
+          </select>
+        </label>
+        <label class="field field-check">
+          <input type="checkbox" id="set-encriptar" />
+          <span>Encriptar conversaciones y notas en reposo</span>
+        </label>
         <label class="field field-check">
           <input type="checkbox" id="set-autoApprove" />
           <span>Permitir comandos del sistema sin preguntar (no recomendado)</span>

@@ -32,7 +32,7 @@ function recommendModel(models, hardware) {
   for (const m of models) {
     const params = m.paramCount || 0;
     // RAM necesaria aprox: ~0.7 GB por cada 1B de parámetros, + base de contexto.
-    const estimatedRamGB = params >= 1e9 ? (params / 1e9) * 0.7 + 0.5 : (params / 1e6) * 0.7 + 0.5;
+    const estimatedRamGB = params >= 1 ? (params / 1e9) * 0.7 + 0.5 : 0.5;
 
     if (ramGB >= estimatedRamGB && (hardware.disk.free || 0) >= (m.sizeBytes || 0) * 1.1) {
       compatible.push(m);

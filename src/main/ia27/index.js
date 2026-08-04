@@ -56,6 +56,7 @@ class IACore extends EventEmitter {
     const preferredModel = settings.modelTag || (recommendation.recommended ? recommendation.recommended.filename : null);
     this.emit("hardware", hw);
     this.emit("recommendation", recommendation);
+    this._recommendation = recommendation;
 
     if (recommendation.recommended) {
       this.emitStage("selecting", recommendation.reason, 0.15);
@@ -133,6 +134,12 @@ class IACore extends EventEmitter {
   }
 
   getStatus() {
+    const reco = this._recommendation || null;
+    let perfilRecomendado = "auto";
+    if (reco && reco.tier) {
+      const map = { "minimal": "ligero", "basic": "equilibrado", "medium": "equilibrado", "high": "potente" };
+      perfilRecomendado = map[reco.tier] || "auto";
+    }
     return {
       ready: this.ready,
       state: this.state,
@@ -142,6 +149,7 @@ class IACore extends EventEmitter {
       modelInfo: this.modelInfo,
       availableModels: this.availableModels || this.resolvedModel?.availableModels || [],
       idleLine: this.ready ? idleLine() : null,
+      perfilRecomendado,
     };
   }
 
