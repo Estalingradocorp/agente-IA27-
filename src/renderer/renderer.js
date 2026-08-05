@@ -13,7 +13,9 @@
     renderScheduled: false,
     pendingConsent: null,
     settings: {},
+    settingsSnapshot: null,
     readyOnce: false,
+    pendingAttachments: [],
   };
 
   const galaxy = new window.Galaxy($("galaxy"));
@@ -153,14 +155,35 @@
     div.dataset.role = m.role;
 
     if (isUser) {
-      if (m.content && m.content.startsWith("[Documento adjunto:")) {
-        const match = m.content.match(/^\[Documento adjunto: ([^\]]+)\]/);
-        const name = match ? match[1] : "documento";
-        const preview = escapeHtml(m.content.slice(0, 200));
+      const atts =
+        m.attachments && m.attachments.length
+          ? m.attachments
+          : m.attachment
+            ? [m.attachment]
+            : [];
+      if (atts.length) {
+        const cards = atts
+          .map((att) => {
+            const name = att.name || "documento";
+            const metaExt = att.extension
+              ? '<span class="doc-meta">' + escapeHtml(String(att.extension).replace(/^\./, "").toUpperCase()) + "</span>"
+              : "";
+            return (
+              '<div class="doc-card">' +
+              '<div><span class="doc-name">📄 ' + escapeHtml(name) + "</span>" + metaExt + "</div>" +
+              "</div>"
+            );
+          })
+          .join("");
+        const promptText = m.prompt != null ? m.prompt : m.content || "";
+        div.innerHTML =
+          cards +
+          (promptText ? '<div class="bubble">' + escapeHtml(promptText) + "</div>" : "");
+      } else if (m.content && m.content.startsWith("[Documento adjunto")) {
+        const name = ((m.content || "").match(/^\[Documento adjunto: ([^\]]+)\]/) || [])[1] || "documento";
         div.innerHTML =
           '<div class="doc-card">' +
           '<div><span class="doc-name">📄 ' + escapeHtml(name) + "</span></div>" +
-          "<div>" + preview + "…</div>" +
           "</div>";
       } else {
         div.innerHTML = '<div class="bubble">' + escapeHtml(m.content || "") + "</div>";
@@ -277,16 +300,27 @@
 
   async function sendCurrent() {
     const text = $("input").value.trim();
-    if (!text || state.generating) return;
+    const attachments = state.pendingAttachments;
+    if ((!text && attachments.length === 0) || state.generating) return;
     $("input").value = "";
     autoResizeInput();
+    state.pendingAttachments = [];
+    renderAttachmentPreview();
 
-    appendMessage({ role: "user", content: text, ts: new Date().toISOString() });
+    appendMessage({
+      role: "user",
+      content: text,
+      prompt: text,
+      attachments: attachments.map((a) => ({ name: a.name, extension: a.extension })),
+      ts: new Date().toISOString(),
+    });
     scrollBottom();
     setGenerating(true);
 
+    const payload = { conversationId: state.activeId, message: text };
+    if (attachments.length) payload.files = attachments.map((a) => a.path);
     try {
-      const msg = await api.sendMessage({ conversationId: state.activeId, message: text });
+      const msg = await api.sendMessage(payload);
       if (msg && state.streamEl) finalizeStream(msg);
     } catch (err) {
       const reason = String((err && err.message) || err);
@@ -302,20 +336,55 @@
   }
 
   // ---------------- attachment ----------------
-  async function attachFile(filePath) {
+  function renderAttachmentPreview() {
+    const container = $("attachment-preview");
+    const atts = state.pendingAttachments;
+    container.innerHTML = "";
+    if (atts.length === 0) {
+      container.classList.add("hidden");
+      return;
+    }
+    container.classList.remove("hidden");
+    for (let i = 0; i < atts.length; i += 1) {
+      const att = atts[i];
+      const chip = document.createElement("div");
+      chip.className = "att-chip";
+      const nameEl = document.createElement("span");
+      nameEl.className = "att-chip-name";
+      nameEl.textContent = "📄 " + att.name;
+      const rm = document.createElement("button");
+      rm.type = "button";
+      rm.className = "att-chip-remove";
+      rm.title = "Quitar adjunto";
+      rm.textContent = "✕";
+      rm.addEventListener("click", () => {
+        state.pendingAttachments.splice(i, 1);
+        renderAttachmentPreview();
+        $("input").focus();
+      });
+      chip.appendChild(nameEl);
+      chip.appendChild(rm);
+      container.appendChild(chip);
+    }
+  }
+
+  function attachFile(filePath) {
     if (state.generating) return;
     if (!filePath) return;
-    setGenerating(true);
-    try {
-      await api.attachDocument({ conversationId: state.activeId, filePath });
-      const conv = await api.getConversation(state.activeId);
-      renderMessages(conv ? conv.messages : []);
-    } catch (err) {
-      appendErrorMessage(String((err && err.message) || err));
-    } finally {
-      setGenerating(false);
-      loadConversations();
+    const clean = String(filePath).replace(/\\/g, "/");
+    const name = clean.split("/").pop() || filePath;
+    const extMatch = name.match(/\.([^.]+)$/);
+    const pathKey = filePath.toLowerCase();
+    if (state.pendingAttachments.some((a) => a.path.toLowerCase() === pathKey)) {
+      return;
     }
+    state.pendingAttachments.push({
+      path: filePath,
+      name,
+      extension: extMatch ? "." + extMatch[1].toLowerCase() : "",
+    });
+    renderAttachmentPreview();
+    $("input").focus();
   }
 
   function appendErrorMessage(message) {
@@ -393,9 +462,12 @@
   }
 
   // ---------------- settings ----------------
+  const RESTART_FIELDS = ["contextSize", "gpuLayers", "threads", "mmap", "perfil", "modelPath", "modelTag", "encriptar"];
+
   async function openSettings() {
     state.settings = await api.getSettings();
     const s = state.settings;
+    state.settingsSnapshot = { ...s };
     const range = $("set-temperature");
     range.value = s.temperature != null ? s.temperature : 0.7;
     $("val-temperature").textContent = Number(range.value).toFixed(1);
@@ -469,7 +541,20 @@
       modelTag: $("set-modelTag").value || undefined,
     };
     await api.updateSettings(patch);
-    closeSettings();
+    const snapshot = state.settingsSnapshot || {};
+    const needsRestart = RESTART_FIELDS.some((k) => {
+      const before = snapshot[k];
+      const after = patch[k];
+      return String(before == null ? "" : before) !== String(after == null ? "" : after);
+    });
+    if (needsRestart) {
+      $("settings-note").textContent =
+        "Algunos cambios (contexto, GPU, modelo, perfil) se aplican al reiniciar la app.";
+      $("btn-restart-app").classList.remove("hidden");
+      $("settings-close").classList.add("hidden");
+    } else {
+      closeSettings();
+    }
   }
 
   function closeSettings() {
@@ -560,18 +645,24 @@
 
   $("btn-attach").addEventListener("click", () => $("file-input").click());
   $("file-input").addEventListener("change", (e) => {
-    const file = e.target.files && e.target.files[0];
-    if (file) attachFile(api.getPathForFile(file));
+    const files = e.target.files;
+    if (files) {
+      for (const file of files) {
+        attachFile(api.getPathForFile(file));
+      }
+    }
     e.target.value = "";
   });
 
   document.addEventListener("dragover", (e) => e.preventDefault());
   document.addEventListener("drop", (e) => {
     e.preventDefault();
-    const file = e.dataTransfer.files && e.dataTransfer.files[0];
-    if (file) {
-      const p = api.getPathForFile(file);
-      if (p) attachFile(p);
+    const files = e.dataTransfer && e.dataTransfer.files;
+    if (files) {
+      for (const file of files) {
+        const p = api.getPathForFile(file);
+        if (p) attachFile(p);
+      }
     }
   });
 

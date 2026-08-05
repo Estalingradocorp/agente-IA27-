@@ -122,14 +122,62 @@ class IACore extends EventEmitter {
 
   async send(payload) {
     if (!this.agent) throw new Error("El n\u00facleo neuronal no est\u00e1 listo.");
-    return this.agent.send(payload);
+    const files = Array.isArray(payload && payload.files)
+      ? payload.files
+      : payload && payload.filePath
+        ? [payload.filePath]
+        : [];
+    if (files.length) {
+      const settings = this.memory.getSettings();
+      const contextSize = Number(settings.contextSize || 8192);
+      const maxTokens = Number(settings.maxTokens || 2048);
+      const docBudgetTokens = Math.max(1200, contextSize - maxTokens - 1400);
+      const docBudgetChars = Math.floor(docBudgetTokens * 3.5);
+      const docs = [];
+      let used = 0;
+      for (const filePath of files) {
+        const doc = await extractText(filePath);
+        const remaining = docBudgetChars - used;
+        if (remaining <= 0) {
+          docs.push({ ...doc, texto: "" });
+          continue;
+        }
+        let texto = doc.texto;
+        if (texto.length > remaining) {
+          texto = texto.slice(0, remaining) + "\n...[contenido truncado por l\u00edmite de contexto]";
+        }
+        used += texto.length;
+        docs.push({ ...doc, texto });
+      }
+      const prompt = String(payload.message || "").trim();
+      const names = docs.filter((d) => d.texto).map((d) => d.nombre).join(", ");
+      let content = "[Documentos adjuntos: " + (names || "varios archivos") + "]\n\n";
+      for (const d of docs) {
+        if (!d.texto) continue;
+        content += "--- DOCUMENTO: " + d.nombre + " ---\n" + d.texto + "\n\n";
+      }
+      content += prompt
+        ? prompt
+        : "Analiza estos documentos y resume lo esencial de cada uno.";
+      return this.agent.send({
+        conversationId: payload.conversationId,
+        message: content,
+        attachments: docs.map((d) => ({ name: d.nombre, extension: d.extension, tamano: d.tamano })),
+        prompt,
+      });
+    }
+    return this.agent.send({
+      conversationId: payload.conversationId,
+      message: payload.message,
+    });
   }
 
   cancelGeneration() {
     if (this.agent) this.agent.cancel();
   }
 
-  async switchConversation() {
+  async switchConversation(conversationId) {
+    if (this.bridge) this.bridge.reset();
     return true;
   }
 

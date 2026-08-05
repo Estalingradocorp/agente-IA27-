@@ -1,23 +1,23 @@
 const path = require("node:path");
 
 const DEFAULT_SETTINGS = {
-  contextSize: 4096,
+  contextSize: 8192,
   batchSize: 512,
   gpuLayers: 0,
   threads: 0,
   temperature: 0.7,
   topK: 40,
   topP: 0.9,
-  maxTokens: 1024,
+  maxTokens: 2048,
   repeatPenalty: 1.1,
   mmap: true,
   perfil: "auto",
 };
 
 const PERFILES = {
-  "ligero": { threads: 2, contextSize: 2048, gpuLayers: 0, batchSize: 256, mmap: true },
-  "equilibrado": { threads: 4, contextSize: 4096, gpuLayers: 0, batchSize: 512, mmap: false },
-  "potente": { threads: 0, contextSize: 8192, gpuLayers: 99, batchSize: 512, mmap: false },
+  "ligero": { threads: 2, contextSize: 4096, gpuLayers: 0, batchSize: 256, mmap: true },
+  "equilibrado": { threads: 4, contextSize: 8192, gpuLayers: 0, batchSize: 512, mmap: false },
+  "potente": { threads: 0, contextSize: 16384, gpuLayers: 99, batchSize: 512, mmap: false },
 };
 
 function aplicarPerfil(settings) {

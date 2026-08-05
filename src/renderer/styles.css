@@ -476,6 +476,18 @@ body {
   font-weight: 600;
 }
 
+.doc-card .doc-meta {
+  display: inline-block;
+  margin-left: 8px;
+  font-size: 10px;
+  font-family: var(--mono);
+  color: var(--text-faint);
+  border: 1px solid var(--blue-dim);
+  border-radius: 4px;
+  padding: 1px 5px;
+  vertical-align: 1px;
+}
+
 .typing {
   display: inline-flex;
   gap: 4px;
@@ -561,6 +573,50 @@ body {
   padding: 12px 18px 16px;
   background: rgba(9, 13, 22, 0.9);
   border-top: 1px solid var(--line-soft);
+  flex-wrap: wrap;
+}
+
+.attachment-preview {
+  flex: 1 1 100%;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.att-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 100%;
+  padding: 5px 8px 5px 11px;
+  background: rgba(47, 127, 255, 0.09);
+  border: 1px solid var(--blue-dim);
+  border-radius: 8px;
+  font-size: 12.5px;
+}
+
+.att-chip-name {
+  color: var(--blue-mist);
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.att-chip-remove {
+  border: none;
+  background: transparent;
+  color: var(--text-faint);
+  cursor: pointer;
+  font-size: 12px;
+  line-height: 1;
+  padding: 2px;
+  border-radius: 4px;
+}
+
+.att-chip-remove:hover {
+  color: #ff7a7a;
+  background: rgba(255, 90, 90, 0.12);
 }
 
 #input {
