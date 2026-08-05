@@ -1,4 +1,4 @@
-const { SYSTEM_PROMPT } = require("./persona");
+const { buildSystemPrompt } = require("./persona");
 
 class Agent {
   constructor({ bridge, memory, emit }) {
@@ -20,7 +20,7 @@ class Agent {
   }
 
   _historyItems(conversation) {
-    const items = [{ type: "system", text: SYSTEM_PROMPT }];
+    const items = [{ type: "system", text: buildSystemPrompt(this.memory.getSettings()) }];
     if (!conversation) return items;
     for (const m of conversation.messages || []) {
       if (m.role === "user") items.push({ type: "user", text: m.content });
@@ -67,9 +67,10 @@ class Agent {
       result = await this.bridge.chat({
         requestId,
         messages: this._historyItems(this.memory.getConversation(conversationId)),
-        systemPrompt: SYSTEM_PROMPT,
+        systemPrompt: buildSystemPrompt(this.memory.getSettings()),
         message,
         sampling: this.sampling,
+        settings: this.memory.getSettings(),
         useTools: true,
         onToken: (m) => this.emit("gen:token", { conversationId, text: m.text }),
         onTool: (m) => this.emit("gen:tool", { conversationId, name: m.name, state: m.state, preview: m.preview }),
@@ -86,10 +87,35 @@ class Agent {
       content: (result.responseText || "").trim(),
       ts: new Date().toISOString(),
       toolCalls: result.toolCalls || [],
+      metrics: result.metrics || null,
     };
     this.memory.appendMessage(conversationId, assistantMsg);
+    this._logPerformance(result.metrics);
     this.emit("gen:done", { conversationId, message: assistantMsg });
     return assistantMsg;
+  }
+
+  _logPerformance(metrics) {
+    if (!metrics) return;
+    try {
+      const fs = require("node:fs");
+      const path = require("node:path");
+      const s = this.memory.getSettings();
+      const line = [
+        new Date().toISOString(),
+        "model=" + (s.modelTag || "?"),
+        "tokens=" + (metrics.tokens ?? "?"),
+        "ms=" + (metrics.totalMs ?? "?"),
+        "tps=" + (metrics.tokensPerSec ?? "?"),
+        "ttft_ms=" + (metrics.firstTokenMs ?? "?"),
+        "ram_mb=" + (metrics.ramUsedMB ?? "?"),
+      ].join(" | ");
+      const dir = path.join(this.memory.dataDir, "logs");
+      fs.mkdirSync(dir, { recursive: true });
+      fs.appendFileSync(path.join(dir, "rendimiento.log"), line + "\n", "utf8");
+    } catch {
+      // el log de rendimiento es opcional
+    }
   }
 
   cancel() {

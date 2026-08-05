@@ -127,12 +127,12 @@ class WorkerBridge {
     });
   }
 
-  chat({ requestId, messages, systemPrompt, message, sampling, useTools, onToken, onTool }) {
+  chat({ requestId, messages, systemPrompt, message, sampling, useTools, settings, onToken, onTool }) {
     return new Promise((resolve, reject) => {
       this.chatPromises.set(requestId, { resolve, reject });
       this.currentTokenCb = onToken;
       this.currentToolCb = onTool;
-      this.send({ type: "chat", requestId, messages, systemPrompt, message, sampling, useTools });
+      this.send({ type: "chat", requestId, messages, systemPrompt, message, sampling, useTools, settings });
     });
   }
 

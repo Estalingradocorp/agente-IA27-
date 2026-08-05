@@ -203,6 +203,7 @@
         div.querySelector(".msg-time").textContent =
           "· " + new Date(m.ts).toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" });
       }
+      appendMetrics(div.querySelector(".assistant-body"), m.metrics);
     }
     box.appendChild(div);
     return div;
@@ -258,6 +259,24 @@
     chip.classList.toggle("running", data.state === "running");
   }
 
+  function appendMetrics(body, metrics) {
+    if (!metrics) return;
+    const tokens = metrics.tokens != null ? Number(metrics.tokens) : 0;
+    const totalMs = metrics.totalMs != null ? Number(metrics.totalMs) : 0;
+    const tps = metrics.tokensPerSec != null ? Number(metrics.tokensPerSec) : 0;
+    const firstMs = metrics.firstTokenMs != null ? Number(metrics.firstTokenMs) : 0;
+    if (!tokens && !totalMs) return;
+    const parts = [];
+    if (tokens) parts.push(tokens + " tok");
+    if (totalMs) parts.push((totalMs / 1000).toFixed(1) + " s");
+    if (tps) parts.push(tps + " tok/s");
+    if (firstMs) parts.push("1er token " + firstMs + " ms");
+    const stats = document.createElement("div");
+    stats.className = "msg-stats";
+    stats.textContent = "⚡ " + parts.join(" · ");
+    body.appendChild(stats);
+  }
+
   function finalizeStream(message) {
     if (!state.streamEl) return;
     const bubble = state.streamEl.querySelector(".bubble");
@@ -270,6 +289,7 @@
       chip.textContent = "⚙ usó " + t.name;
       body.insertBefore(chip, bubble);
     }
+    appendMetrics(body, message.metrics);
     state.streamEl = null;
     state.streamText = "";
     scrollBottom();
@@ -479,6 +499,7 @@
     $("set-perfil").value = s.perfil || "auto";
     $("set-encriptar").checked = !!s.encriptar;
     $("set-autoApprove").checked = !!s.autoApproveCommands;
+    $("set-buscarInternet").checked = !!s.buscarInternet;
     $("set-modelPath").value = s.modelPath || "";
     populateModelSelector(s.modelTag);
     $("settings-modal").classList.remove("hidden");
@@ -537,6 +558,7 @@
       perfil: $("set-perfil").value || "auto",
       encriptar: $("set-encriptar").checked,
       autoApproveCommands: $("set-autoApprove").checked,
+      buscarInternet: $("set-buscarInternet").checked,
       modelPath: $("set-modelPath").value.trim() || undefined,
       modelTag: $("set-modelTag").value || undefined,
     };

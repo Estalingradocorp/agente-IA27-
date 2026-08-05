@@ -2,6 +2,7 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const { execFile } = require("node:child_process");
+const { COMPANY_INFO } = require("./company");
 
 const IGNORED_DIRS = new Set([
   "node_modules", ".git", ".hg", ".svn", "$recycle.bin",
@@ -107,6 +108,43 @@ function listDirectory(dirPath, maxEntries = 60) {
   };
 }
 
+function looksLikeWebQuery(pattern, dirPath) {
+  const p = String(pattern || "").trim();
+  const d = String(dirPath || "").trim();
+  if (!p) return false;
+  if (p.includes("*") || p.includes("?")) return false;
+  const pl = p.toLowerCase();
+  const dl = d.toLowerCase();
+
+  if (d && (
+    dl.includes("internet") ||
+    dl.includes("http") ||
+    dl.includes("www") ||
+    dl.includes("google") ||
+    dl.includes("duckduckgo") ||
+    dl.includes("wikipedia") ||
+    dl.includes("wiki") ||
+    dl.includes("archive.org") ||
+    dl.includes("wayback") ||
+    dl.startsWith("/web")
+  )) return true;
+
+  if (
+    pl.includes("://") ||
+    pl.startsWith("http") ||
+    pl.startsWith("www.") ||
+    pl.includes("buscar en internet") ||
+    pl.includes("wikipedia") ||
+    pl.includes("wiki") ||
+    pl.includes("archive.org") ||
+    pl.includes("wayback") ||
+    pl.includes(" buscar ") ||
+    pl.startsWith("internet ")
+  ) return true;
+
+  return /[\p{L}]{2,}\s+[\p{L}]{2,}/u.test(p);
+}
+
 function searchFiles(pattern, dirPath, maxResults = 40) {
   const target = dirPath || os.homedir();
   if (!fs.existsSync(target)) throw new Error("La carpeta no existe: " + target);
@@ -197,8 +235,203 @@ function writeFileSafely(filePath, content, { overwrite = true } = {}) {
   return "Archivo guardado en " + abs + " (" + formatBytes(fs.statSync(abs).size) + ")";
 }
 
+function stripTags(text) {
+  return String(text || "")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#x27;|&#39;/g, "'")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function decodeDdgUrl(url) {
+  const m = String(url || "").match(/uddg=([^&]+)/);
+  if (m) {
+    try {
+      return decodeURIComponent(m[1]);
+    } catch {
+      return m[1];
+    }
+  }
+  return url;
+}
+
+function parseDuckDuckGoHtml(html, maxResults) {
+  const out = [];
+  const titleRe = /<a[^>]*class="[^"]*result__a[^"]*"[^>]*href="([^"]*)"[^>]*>([\s\S]*?)<\/a>/g;
+  const snipRe = /<a[^>]*class="[^"]*result__snippet[^"]*"[^>]*>([\s\S]*?)<\/a>/g;
+  const titles = [];
+  let m;
+  while ((m = titleRe.exec(html)) && titles.length < maxResults) {
+    titles.push({ url: decodeDdgUrl(m[1]), title: stripTags(m[2]) });
+  }
+  const snippets = [];
+  while ((m = snipRe.exec(html)) && snippets.length < maxResults) {
+    snippets.push(stripTags(m[1]));
+  }
+  for (let i = 0; i < titles.length; i += 1) {
+    out.push({ titulo: titles[i].title, url: titles[i].url, resumen: snippets[i] || "" });
+  }
+  return out;
+}
+
+async function webSearch(query, maxResults = 5) {
+  const q = String(query || "").trim();
+  if (!q) return "Indica qué buscar.";
+  const fetchWithTimeout = (url, ms = 10000) => {
+    const ac = new AbortController();
+    const timer = setTimeout(() => ac.abort(), ms);
+    return fetch(url, {
+      signal: ac.signal,
+      headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) IA27/1.1" },
+    }).finally(() => clearTimeout(timer));
+  };
+
+  try {
+    try {
+      const res = await fetchWithTimeout(
+        "https://api.duckduckgo.com/?q=" + encodeURIComponent(q) + "&format=json&no_html=1&skip_disambig=1"
+      );
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.AbstractText) {
+          const direct =
+            "RESULTADO DIRECTO:\n" + stripTags(data.AbstractText) +
+            (data.AbstractURL ? "\nFuente: " + data.AbstractURL : "");
+          return direct;
+        }
+      }
+    } catch {
+      // se prueba el buscador HTML
+    }
+
+    const res = await fetchWithTimeout("https://html.duckduckgo.com/html/?q=" + encodeURIComponent(q));
+    if (!res.ok) return "No se pudo consultar el buscador (estado HTTP " + res.status + ").";
+    const html = await res.text();
+    const results = parseDuckDuckGoHtml(html, maxResults);
+    if (!results.length) return "No se encontraron resultados para: " + q;
+    return (
+      "RESULTADOS DE BÚSQUEDA PARA: " + q + "\n" +
+      results.map((r, i) => (i + 1) + ". " + r.titulo + "\n   URL: " + r.url + "\n   " + (r.resumen || "")).join("\n")
+    );
+  } catch (err) {
+    return "Error al buscar en internet: " + String((err && err.message) || err);
+  }
+}
+
+function fetchWithTimeout(url, ms = 10000) {
+  const ac = new AbortController();
+  const timer = setTimeout(() => ac.abort(), ms);
+  return fetch(url, {
+    signal: ac.signal,
+    headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) IA27/1.1" },
+  }).finally(() => clearTimeout(timer));
+}
+
+async function webSearchWikipedia(query, lang = "es", maxResults = 5) {
+  const q = String(query || "").trim();
+  if (!q) return "Indica qué consultar en Wikipedia.";
+  const api = "https://" + String(lang || "es").replace(/[^a-zA-Z-]/g, "") + ".wikipedia.org/w/api.php";
+  const wikiUrl = (title) =>
+    "https://" + String(lang || "es").replace(/[^a-zA-Z-]/g, "") + ".wikipedia.org/wiki/" + encodeURIComponent(String(title).replace(/ /g, "_"));
+
+  try {
+    const searchRes = await fetchWithTimeout(
+      api + "?action=query&list=search&srsearch=" + encodeURIComponent(q) + "&srlimit=" + maxResults + "&format=json&origin=*",
+      12000
+    );
+    if (!searchRes.ok) return "No se pudo consultar Wikipedia (estado HTTP " + searchRes.status + ").";
+    const data = await searchRes.json();
+    const hits = data && data.query && data.query.search ? data.query.search : [];
+    if (!hits.length) return "No se encontraron artículos de Wikipedia para: " + q;
+
+    const top = hits[0];
+    try {
+      const extRes = await fetchWithTimeout(
+        api + "?action=query&prop=extracts&exintro=1&explaintext=1&pageids=" + top.pageid + "&format=json&origin=*",
+        12000
+      );
+      if (extRes.ok) {
+        const extData = await extRes.json();
+        const pages = extData && extData.query && extData.query.pages ? extData.query.pages : {};
+        const page = Object.keys(pages).map((k) => pages[k])[0];
+        if (page && page.extract) {
+          return (
+            "RESULTADO DE WIKIPEDIA PARA: " + q + "\n\n" +
+            "Artículo: " + page.title + "\n\n" +
+            page.extract.slice(0, 3000) + "\n\n" +
+            "URL: " + wikiUrl(page.title)
+          );
+        }
+      }
+    } catch {
+      // se vuelve a la lista de resultados
+    }
+
+    const lines = hits.map((h) => {
+      const title = h.title;
+      return (
+        "• " + title + "\n  " + stripTags(h.snippet || "") + "\n  URL: " + wikiUrl(title)
+      );
+    });
+    return "RESULTADOS DE WIKIPEDIA PARA: " + q + "\n" + lines.join("\n\n");
+  } catch (err) {
+    return "Error al consultar Wikipedia: " + String((err && err.message) || err);
+  }
+}
+
+async function webSearchInternetArchive(query, maxResults = 5) {
+  const q = String(query || "").trim();
+  if (!q) return "Indica qué buscar en Internet Archive.";
+
+  try {
+    const searchRes = await fetchWithTimeout(
+      "https://archive.org/advancedsearch.php?q=" + encodeURIComponent(q) +
+      "&fl[]=identifier&fl[]=title&fl[]=description&fl[]=mediatype&rows=" + maxResults + "&output=json",
+      15000
+    );
+    if (searchRes.ok) {
+      const data = await searchRes.json();
+      const docs = data && data.response && data.response.docs ? data.response.docs : [];
+      if (docs.length) {
+        const lines = docs.map((d) => {
+          const ident = String(d.identifier || "");
+          const title = String(d.title || ident || "sin título");
+          const desc = Array.isArray(d.description) ? d.description[0] : d.description;
+          return (
+            "• " + title + " (" + (d.mediatype || "?") + ")\n  " +
+            stripTags(String(desc || "")).slice(0, 200) + "\n  URL: https://archive.org/details/" + encodeURIComponent(ident)
+          );
+        });
+        return "RESULTADOS DE INTERNET ARCHIVE PARA: " + q + "\n" + lines.join("\n\n");
+      }
+    }
+
+    const wbRes = await fetchWithTimeout("https://archive.org/wayback/available?url=" + encodeURIComponent(q), 15000);
+    if (wbRes.ok) {
+      const wbData = await wbRes.json();
+      const snap = wbData && wbData.archived_snapshots && wbData.archived_snapshots.closest;
+      if (snap && snap.url) {
+        return (
+          "ARCHIVO WAYBACK MACHINE:\n" + q + "\n" +
+          "Snapshots disponibles en: " + snap.url + "\n" +
+          "Guardado: " + (snap.timestamp || "desconocido") + ".\n" +
+          "URL completa: " + snap.url
+        );
+      }
+    }
+
+    return "No se encontraron resultados en Internet Archive para: " + q;
+  } catch (err) {
+    return "Error al consultar Internet Archive: " + String((err && err.message) || err);
+  }
+}
+
 function buildToolHandlers(ctx) {
-  const { emit, consent, openPath, dataDir } = ctx;
+  const { emit, consent, openPath, dataDir, settings } = ctx;
 
   const tools = {
     fecha_hora: {
@@ -229,7 +462,11 @@ function buildToolHandlers(ctx) {
       },
       handler: async ({ ruta }) => {
         emit("tool", { name: "listar_directorio", state: "done", preview: ruta || "actual" });
-        return JSON.stringify(listDirectory(ruta), null, 2);
+        try {
+          return JSON.stringify(listDirectory(ruta), null, 2);
+        } catch (err) {
+          return "La carpeta '" + (ruta || "") + "' no existe en este equipo o es inaccesible. Verifica la ruta. Si buscabas información, prueba con buscar_wikipedia, buscar_internet_archive o buscar_internet.";
+        }
       },
     },
     leer_archivo: {
@@ -244,7 +481,11 @@ function buildToolHandlers(ctx) {
       },
       handler: async ({ ruta, max_lineas }) => {
         emit("tool", { name: "leer_archivo", state: "done", preview: ruta });
-        return readTextSafely(ruta, 60000, max_lineas || 800);
+        try {
+          return readTextSafely(ruta, 60000, max_lineas || 800);
+        } catch (err) {
+          return "No se pudo leer el archivo '" + ruta + "': " + String((err && err.message) || err) + ". Verifica que exista en este equipo. Si buscabas información, prueba con buscar_wikipedia o buscar_internet_archive.";
+        }
       },
     },
     buscar_archivos: {
@@ -258,8 +499,37 @@ function buildToolHandlers(ctx) {
         required: ["patron"],
       },
       handler: async ({ patron, carpeta }) => {
+        const lp = String(patron || "").toLowerCase();
+        const lc = String(carpeta || "").toLowerCase();
+        if (lc.includes("wikipedia") || lp.includes("wikipedia") || lp.includes("wiki")) {
+          const topic = String(patron || "").replace(/buscar\s*(en)?\s*wikipedia|wikipedia|wiki/gi, "").replace(/^\s*sobre\s+/i, "").replace(/^\s*acerca\s+de\s+/i, "").trim();
+          emit("tool", { name: "buscar_archivos", state: "running", preview: patron });
+          const out = await webSearchWikipedia(topic || patron);
+          emit("tool", { name: "buscar_archivos", state: "done", preview: patron });
+          return "NOTA: redirigido automáticamente a la búsqueda en Wikipedia (buscar_wikipedia).\n\n" + out;
+        }
+        if (lc.includes("archive.org") || lc.includes("wayback") || lp.includes("archive.org") || lp.includes("wayback")) {
+          emit("tool", { name: "buscar_archivos", state: "running", preview: patron });
+          const out = await webSearchInternetArchive(patron);
+          emit("tool", { name: "buscar_archivos", state: "done", preview: patron });
+          return "NOTA: redirigido automáticamente a la búsqueda en Internet Archive (buscar_internet_archive).\n\n" + out;
+        }
+        if (looksLikeWebQuery(patron, carpeta)) {
+          if (!settings || settings.buscarInternet !== true) {
+            emit("tool", { name: "buscar_archivos", state: "done", preview: patron });
+            return "Parece que querías buscar en internet, pero la búsqueda en internet está deshabilitada. El operador debe activarla en ⚙ Ajustes (Permitir búsqueda en internet).";
+          }
+          emit("tool", { name: "buscar_archivos", state: "running", preview: patron });
+          const out = await webSearch(patron);
+          emit("tool", { name: "buscar_archivos", state: "done", preview: patron });
+          return "NOTA: la consulta fue redirigida automáticamente a la búsqueda en internet (buscar_internet).\n\n" + out;
+        }
         emit("tool", { name: "buscar_archivos", state: "done", preview: patron });
-        return JSON.stringify(searchFiles(patron, carpeta), null, 2);
+        try {
+          return JSON.stringify(searchFiles(patron, carpeta), null, 2);
+        } catch (err) {
+          return "La carpeta '" + (carpeta || "") + "' no existe en este equipo o es inaccesible. Verifica la ruta. Si buscabas información, prueba con buscar_wikipedia, buscar_internet_archive o buscar_internet.";
+        }
       },
     },
     abrir_ruta: {
@@ -313,10 +583,15 @@ function buildToolHandlers(ctx) {
       },
       handler: async ({ ruta }) => {
         emit("tool", { name: "leer_documento", state: "running", preview: ruta });
-        const { extractText } = require("./documents");
-        const doc = await extractText(ruta);
-        emit("tool", { name: "leer_documento", state: "done", preview: ruta });
-        return "Documento: " + doc.nombre + " (" + doc.extension + ", " + formatBytes(doc.tamano) + ")\n\n" + doc.texto;
+        try {
+          const { extractText } = require("./documents");
+          const doc = await extractText(ruta);
+          emit("tool", { name: "leer_documento", state: "done", preview: ruta });
+          return "Documento: " + doc.nombre + " (" + doc.extension + ", " + formatBytes(doc.tamano) + ")\n\n" + doc.texto;
+        } catch (err) {
+          emit("tool", { name: "leer_documento", state: "done", preview: ruta });
+          return "No se pudo leer el documento '" + ruta + "': " + String((err && err.message) || err) + ". Verifica que exista en este equipo.";
+        }
       },
     },
     informacion_archivo: {
@@ -328,7 +603,11 @@ function buildToolHandlers(ctx) {
       },
       handler: async ({ ruta }) => {
         emit("tool", { name: "informacion_archivo", state: "done", preview: ruta });
-        return JSON.stringify(fileInfo(ruta), null, 2);
+        try {
+          return JSON.stringify(fileInfo(ruta), null, 2);
+        } catch (err) {
+          return "La ruta '" + ruta + "' no existe en este equipo o es inaccesible. Verifica la ruta. Si buscabas información, prueba con buscar_wikipedia o buscar_internet_archive.";
+        }
       },
     },
     escribir_archivo: {
@@ -348,6 +627,72 @@ function buildToolHandlers(ctx) {
         emit("tool", { name: "escribir_archivo", state: "running", preview: ruta });
         const out = writeFileSafely(ruta, contenido, { overwrite: sobreescribir !== false });
         emit("tool", { name: "escribir_archivo", state: "done", preview: ruta });
+        return out;
+      },
+    },
+    info_empresa: {
+      description: "Información oficial y verificada sobre Estalingrado Corp: productos, proyectos, redes y datos de la corporación.",
+      params: {
+        type: "object",
+        properties: {
+          tema: { type: "string", description: "Aspecto a consultar (opcional): productos, proyectos, redes, filosofía, etc." },
+        },
+        required: [],
+      },
+      handler: async ({ tema }) => {
+        emit("tool", { name: "info_empresa", state: "done", preview: tema || "ficha corporativa" });
+        return COMPANY_INFO;
+      },
+    },
+    buscar_internet: {
+      description: "Buscar información actualizada en internet (requiere que el operador lo habilite en Ajustes).",
+      params: {
+        type: "object",
+        properties: {
+          consulta: { type: "string", description: "Consulta o términos a buscar en la web." },
+        },
+        required: ["consulta"],
+      },
+      handler: async ({ consulta }) => {
+        if (!settings || settings.buscarInternet !== true) {
+          return "La búsqueda en internet está deshabilitada. El operador debe activarla en ⚙ Ajustes (Permitir búsqueda en internet).";
+        }
+        emit("tool", { name: "buscar_internet", state: "running", preview: consulta });
+        const out = await webSearch(consulta);
+        emit("tool", { name: "buscar_internet", state: "done", preview: consulta });
+        return out;
+      },
+    },
+    buscar_wikipedia: {
+      description: "Buscar en Wikipedia (enciclopedia libre). Ideal para definiciones, biografías, conceptos, historia y datos enciclopédicos. Siempre disponible, no requiere configuración.",
+      params: {
+        type: "object",
+        properties: {
+          consulta: { type: "string", description: "Término o tema a buscar en Wikipedia." },
+          idioma: { type: "string", description: "Código de idioma (opcional): es, en, etc. Por defecto 'es'." },
+        },
+        required: ["consulta"],
+      },
+      handler: async ({ consulta, idioma }) => {
+        emit("tool", { name: "buscar_wikipedia", state: "running", preview: consulta });
+        const out = await webSearchWikipedia(consulta, idioma || "es");
+        emit("tool", { name: "buscar_wikipedia", state: "done", preview: consulta });
+        return out;
+      },
+    },
+    buscar_internet_archive: {
+      description: "Buscar en Internet Archive y Wayback Machine: libros y documentos públicos, páginas web archivadas, audio y video. Siempre disponible, no requiere configuración.",
+      params: {
+        type: "object",
+        properties: {
+          consulta: { type: "string", description: "Término a buscar, o una URL para consultar snapshots en Wayback Machine." },
+        },
+        required: ["consulta"],
+      },
+      handler: async ({ consulta }) => {
+        emit("tool", { name: "buscar_internet_archive", state: "running", preview: consulta });
+        const out = await webSearchInternetArchive(consulta);
+        emit("tool", { name: "buscar_internet_archive", state: "done", preview: consulta });
         return out;
       },
     },

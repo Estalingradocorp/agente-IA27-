@@ -45,6 +45,22 @@ adecuado**, equilibrando velocidad, consumo de recursos y calidad.
   de tu máquina.
 - **Cambio de modelo en Ajustes**: un desplegable con todos los GGUF detectados,
   sin necesidad de modificar el código.
+- **Búsqueda en internet (opcional)**: con el checkbox "Permitir búsqueda en
+  internet" (⚙ Ajustes), IA-27 puede buscar en la web (DuckDuckGo, sin API key)
+  ante consultas de hechos actuales o información externa.
+- **Consultas a Wikipedia e Internet Archive (siempre activas)**: herramientas
+  `buscar_wikipedia` (definiciones, biografías, datos enciclopédicos vía la API
+  pública de Wikipedia) y `buscar_internet_archive` (libros y documentos
+  públicos, páginas web archivadas con Wayback Machine). No requieren
+  configuración y funcionan con APIs públicas sin clave.
+- **Manejo robusto de errores de ruta**: si el modelo alucina una ruta o carpeta
+  inexistente, IA-27 responde con un mensaje claro (y sugiere usar
+  `buscar_wikipedia` / `buscar_internet_archive` / `buscar_internet`) en lugar
+  de romper la conversación con un error.
+- **Métricas de rendimiento**: cada respuesta muestra tokens generados, tiempo
+  total, velocidad (tok/s) y latencia al primer token. Además se guarda un log
+  de rendimiento persistente en `ia27-data/logs/rendimiento.log` (modelo,
+  tokens, ms, tok/s, ttft y RAM usada) para evaluar y comparar modelos.
 - **Totalmente offline**: el modelo se carga desde una carpeta local
   (`ia27-data/models/`) sin servidor ni conexión.
 
@@ -109,6 +125,25 @@ Qwen 1.5B pasa de ~3 a **~30 tokens/s**.
 
 ---
 
+## Rendimiento y métricas
+
+IA-27 registra el rendimiento del modelo en cada respuesta, tanto en la interfaz
+como en un log persistente:
+
+- **En el chat**: cada mensaje de IA-27 muestra una línea de métricas con
+  **tokens generados**, **tiempo total**, **velocidad (tok/s)** y **latencia al
+  primer token** (1er token ms).
+- **Log persistente**: se escribe una línea por generación en
+  `ia27-data/logs/rendimiento.log` con el formato:
+  `fecha | model=<tag> | tokens=N | ms=N | tps=N | ttft_ms=N | ram_mb=N`.
+- **Tiempo de carga del modelo**: disponible vía el estado de la app
+  (`getStatus().modelLoadMetrics`).
+
+Esto permite comparar modelos (p. ej. 0.5B vs 3B) y ajustar la configuración
+(temperatura, contexto, GPU) con datos objetivos.
+
+---
+
 ## Uso
 
 ### Versión lista para usar (sin terminal)
@@ -153,10 +188,11 @@ src/
       worker.js         # Motor aislado en proceso hijo (utilityProcess)
       bridge.js         # Puente de mensajes main ⇄ worker
       memory.js         # Persistencia de conversaciones y ajustes
-      tools.js          # Herramientas del sistema (function calling)
+      tools.js          # Herramientas del sistema + web (function calling)
       documents.js      # Extracción de texto (PDF, DOCX, código…)
       agent.js          # Orquestación de chat + herramientas + memoria
       persona.js        # Personalidad de IA-27 / Estalingrado Corp
+      company.js        # Ficha oficial de Estalingrado Corp (COMPANY_INFO)
   preload/
     index.js            # API segura para el renderer (contextBridge)
     splash.js           # API para la pantalla de carga

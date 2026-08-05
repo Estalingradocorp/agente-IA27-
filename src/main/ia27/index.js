@@ -106,6 +106,7 @@ class IACore extends EventEmitter {
       dataDir: this.dataDir,
     });
     this.modelInfo = info.info || null;
+    this.modelLoadMetrics = info.metrics || null;
 
     this.emitStage("ready", "Modelo listo", 1.0);
 
@@ -195,6 +196,7 @@ class IACore extends EventEmitter {
       modelSource: this.resolvedModel?.source || null,
       modelPath: this.resolvedModel?.modelPath || null,
       modelInfo: this.modelInfo,
+      modelLoadMetrics: this.modelLoadMetrics,
       availableModels: this.availableModels || this.resolvedModel?.availableModels || [],
       idleLine: this.ready ? idleLine() : null,
       perfilRecomendado,

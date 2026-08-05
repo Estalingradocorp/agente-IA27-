@@ -23,6 +23,7 @@ let session = null;
 let sessionHistory = null;
 let abortController = null;
 let dataDir = null;
+let currentSettings = null;
 
 const consentWaiters = new Map();
 const openWaiters = new Map();
@@ -75,6 +76,7 @@ function isPrefixOf(prefix, full) {
 
 async function init({ modelPath, settings, dataDir: dd }) {
   dataDir = dd;
+  currentSettings = settings || {};
   const { LLMEngine } = require("./engine");
   engine = new LLMEngine({
     modelPath,
@@ -82,18 +84,28 @@ async function init({ modelPath, settings, dataDir: dd }) {
     onProgress: (p) => send("progress", { progress: p }),
     onStage: (m) => send("stage", { message: m }),
   });
+  const t0 = Date.now();
   await engine.init();
-  send("ready", { info: engine.getModelInfo() });
+  const loadMs = Date.now() - t0;
+  send("ready", {
+    info: engine.getModelInfo(),
+    metrics: {
+      loadMs,
+      ramUsedMB: Math.round(process.memoryUsage().rss / 1048576),
+    },
+  });
 }
 
-async function runChat({ requestId, messages, systemPrompt, message, sampling, useTools }) {
+async function runChat({ requestId, messages, systemPrompt, message, sampling, useTools, settings }) {
   const { buildToolHandlers } = require("./tools");
+  const toolSettings = settings || currentSettings;
   const handlers = useTools
     ? buildToolHandlers({
         emit: (type, d) => send("tool", { requestId, name: d.name, state: d.state, preview: d.preview }),
         consent: requestConsent,
         openPath: requestOpen,
         dataDir,
+        settings: toolSettings,
       })
     : undefined;
 
@@ -117,14 +129,33 @@ async function runChat({ requestId, messages, systemPrompt, message, sampling, u
   }
 
   abortController = new AbortController();
+  const t0 = Date.now();
+  let firstTokenMs = null;
+  let chunks = 0;
   const meta = await session.promptWithMeta(message, {
     ...sampling,
     functions: handlers,
     signal: abortController.signal,
-    onTextChunk: (text) => send("token", { requestId, text }),
+    onTextChunk: (text) => {
+      if (firstTokenMs == null) firstTokenMs = Date.now() - t0;
+      chunks += 1;
+      send("token", { requestId, text });
+    },
   });
+  const totalMs = Date.now() - t0;
 
   sessionHistory = session.getChatHistory();
+
+  const tokens = meta && meta.tokens ? meta.tokens : null;
+  const timings = tokens && tokens.timings ? tokens.timings : null;
+  const tokenCount =
+    tokens && typeof tokens.tokens === "number" ? tokens.tokens : chunks;
+  const tokensPerSec =
+    timings && timings.predictedPerSecond
+      ? Math.round(timings.predictedPerSecond)
+      : tokenCount > 0 && totalMs > 0
+        ? Math.round((tokenCount / totalMs) * 1000)
+        : 0;
 
   const toolCalls = [];
   for (const item of meta.response || []) {
@@ -132,7 +163,21 @@ async function runChat({ requestId, messages, systemPrompt, message, sampling, u
       toolCalls.push({ name: item.name, params: item.params });
     }
   }
-  send("chat:done", { requestId, responseText: meta.responseText || "", toolCalls });
+  send("chat:done", {
+    requestId,
+    responseText: meta.responseText || "",
+    toolCalls,
+    metrics: {
+      tokens: tokenCount,
+      chunks,
+      totalMs,
+      firstTokenMs,
+      tokensPerSec,
+      promptMs: timings && timings.promptMs ? Math.round(timings.promptMs) : null,
+      predictedMs: timings && timings.predictedMs ? Math.round(timings.predictedMs) : null,
+      ramUsedMB: Math.round(process.memoryUsage().rss / 1048576),
+    },
+  });
 }
 
 port.onMessage(async (msg) => {

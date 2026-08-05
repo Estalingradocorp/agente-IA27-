@@ -446,6 +446,18 @@ body {
   letter-spacing: 0.06em;
 }
 
+.msg-stats {
+  align-self: flex-start;
+  font-size: 10.5px;
+  color: var(--text-faint);
+  font-family: var(--mono);
+  background: rgba(47, 127, 255, 0.05);
+  border: 1px solid rgba(47, 127, 255, 0.12);
+  border-radius: 8px;
+  padding: 3px 8px;
+  letter-spacing: 0.03em;
+}
+
 .tool-chip {
   align-self: flex-start;
   font-size: 11px;
