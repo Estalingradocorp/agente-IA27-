@@ -9,6 +9,8 @@ descargar nada por sí sola. La aplicación **analiza el hardware del equipo**
 (RAM, CPU, GPU, VRAM, disco y aceleración) y **recomienda el modelo más
 adecuado**, equilibrando velocidad, consumo de recursos y calidad.
 
+![Interfaz de usuario de IA-27](assets/ia27-ui.png)
+
 ---
 
 ## Características
