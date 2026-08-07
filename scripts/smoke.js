@@ -3,8 +3,15 @@ const fs = require("node:fs");
 const path = require("node:path");
 const { IACore } = require("../src/main/ia27");
 
-const dataDir = path.join(os.tmpdir(), "ia27-smoke-data");
-fs.mkdirSync(dataDir, { recursive: true });
+const projectDataDir = path.join(__dirname, "..", "ia27-data");
+const dataDir =
+  process.env.IA27_DATA_DIR ||
+  (fs.existsSync(path.join(projectDataDir, "models")) ? projectDataDir : path.join(os.tmpdir(), "ia27-smoke-data"));
+if (!fs.existsSync(path.join(dataDir, "models"))) {
+  console.error("SMOKE FAILED: No hay carpeta de modelos en " + path.join(dataDir, "models"));
+  console.error("Coloca un .gguf en ia27-data/models/ o define IA27_DATA_DIR.");
+  process.exit(1);
+}
 
 async function main() {
   const prompt = process.argv.slice(2).join(" ") || "Saluda brevemente y di quién eres.";

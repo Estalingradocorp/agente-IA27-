@@ -1,4 +1,5 @@
 const { buildSystemPrompt } = require("./persona");
+const { clampMaxTokens } = require("./engine");
 
 class Agent {
   constructor({ bridge, memory, emit }) {
@@ -10,12 +11,13 @@ class Agent {
 
   get sampling() {
     const s = this.memory.getSettings();
+    const contextSize = Number(s.contextSize || 8192);
     return {
-      temperature: Number(s.temperature ?? 0.7),
+      temperature: Math.min(Number(s.temperature ?? 0.7), 0.8),
       topK: Number(s.topK ?? 40),
       topP: Number(s.topP ?? 0.9),
       repeatPenalty: { penalty: Number(s.repeatPenalty ?? 1.1) },
-      maxTokens: Number(s.maxTokens ?? 1024),
+      maxTokens: clampMaxTokens(s.maxTokens, contextSize),
     };
   }
 
@@ -32,7 +34,7 @@ class Agent {
   _fitToContext(items) {
     const s = this.memory.getSettings();
     const contextSize = Number(s.contextSize || 8192);
-    const maxTokens = Number(s.maxTokens || 2048);
+    const maxTokens = clampMaxTokens(s.maxTokens, contextSize);
     const budgetTokens = Math.max(800, contextSize - maxTokens - 1200);
     const budgetChars = Math.floor(budgetTokens * 3.5);
     const itemLen = (it) =>

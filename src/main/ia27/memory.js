@@ -139,7 +139,9 @@ class MemoryStore {
   getSettings() {
     if (!fs.existsSync(this.settingsFile)) return {};
     try {
-      return JSON.parse(fs.readFileSync(this.settingsFile, "utf8"));
+      let raw = fs.readFileSync(this.settingsFile, "utf8");
+      if (raw.charCodeAt(0) === 0xfeff) raw = raw.slice(1);
+      return JSON.parse(raw);
     } catch {
       return {};
     }
@@ -172,7 +174,9 @@ class MemoryStore {
     if (buf.length >= ENC_MAGIC.length && buf.slice(0, ENC_MAGIC.length).equals(ENC_MAGIC)) {
       return decrypt(this._keyGet(), buf);
     }
-    return buf.toString("utf8");
+    let s = buf.toString("utf8");
+    if (s.charCodeAt(0) === 0xfeff) s = s.slice(1);
+    return s;
   }
 }
 

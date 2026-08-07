@@ -3,7 +3,7 @@ const path = require("node:path");
 const mammoth = require("mammoth");
 const pdfParse = require("pdf-parse");
 
-const MAX_TEXT = 6000;
+const MAX_TEXT = 12000;
 
 const TEXT_EXTS = new Set([
   ".txt", ".md", ".markdown", ".log", ".json", ".csv", ".tsv", ".xml", ".yaml", ".yml",
@@ -36,6 +36,9 @@ async function extractText(filePath) {
     const buffer = fs.readFileSync(filePath);
     const parsed = await pdfParse(buffer);
     text = parsed.text || "";
+    if (!text || !text.trim()) {
+      throw new Error("No se pudo extraer texto del PDF. Puede ser un PDF escaneado (solo imágenes) o sin capa de texto; IA-27 no incluye OCR. Convierte el documento a .txt o .docx para poder analizarlo.");
+    }
   } else if (ext === ".docx") {
     const result = await mammoth.extractRawText({ path: filePath });
     text = result.value || "";

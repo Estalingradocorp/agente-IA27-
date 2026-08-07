@@ -22,7 +22,9 @@ class WorkerBridge {
 
   start(workerPath) {
     if (this.isUtility) {
-      this.proc = utilityProcessApi.fork(workerPath);
+      this.proc = utilityProcessApi.fork(workerPath, [], { stdio: "pipe" });
+      this.proc.stdout?.on("data", (d) => console.log("[worker]", String(d)));
+      this.proc.stderr?.on("data", (d) => console.log("[worker-err]", String(d)));
       this.proc.on("message", (msg) => this._onMessage(msg));
     } else {
       const { fork } = require("node:child_process");

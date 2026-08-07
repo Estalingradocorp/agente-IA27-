@@ -275,6 +275,20 @@ body {
   text-overflow: ellipsis;
 }
 
+.net-status.online .dot {
+  background: var(--ok);
+  box-shadow: 0 0 8px var(--ok);
+}
+
+.net-status.offline .dot {
+  background: var(--danger);
+  box-shadow: 0 0 8px var(--danger);
+}
+
+.net-status .status-text {
+  font-size: 10.5px;
+}
+
 .company-link {
   border: none;
   background: none;

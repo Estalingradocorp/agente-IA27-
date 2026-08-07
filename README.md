@@ -13,6 +13,21 @@ adecuado**, equilibrando velocidad, consumo de recursos y calidad.
 
 ---
 
+## Atenea Omega — el modelo de IA propio de Estalingrado Corp
+
+Estalingrado Corp está desarrollando **Atenea Omega**, un modelo de inteligencia
+artificial **propio y avanzado** que pronto será integrado a este proyecto como
+motor principal de IA-27. Con Atenea Omega, la asistente pasará de ejecutar
+modelos GGUF locales de terceros a correr sobre un modelo desarrollado por la
+propia corporación, en línea con su filosofía: *"La tecnología no es el fin, es
+el camino"*.
+
+Mientras tanto, IA-27 funciona con modelos GGUF locales optimizados para el
+hardware de cada equipo. Puedes seguir el desarrollo de IA-27 y de Atenea Omega
+en el [repositorio del proyecto](https://github.com/Estalingradocorp/agente-IA27-).
+
+---
+
 ## Características
 
 - **Conversación natural** con la personalidad de IA-27 (en español por defecto).
@@ -94,13 +109,16 @@ adecuado**, equilibrando velocidad, consumo de recursos y calidad.
 
 ### Modelos recomendados
 
-Según tu hardware, IA-27 te sugerirá automáticamente el modelo óptimo. Estas
-son las mejores opciones GGUF (`Q4_K_M`) por tramo de RAM:
+Según tu hardware, IA-27 te sugerirá automáticamente el modelo óptimo. En el
+equipo de desarrollo actual (GTX 1050 Ti 4 GB + 16 GB RAM) el modelo activo es
+**Fabe27ib** (Granite 3B Q4_K_M, ~1.9 GB), optimizado para responder en español
+y generar código/HTML completo con aceleración Vulkan. Otras opciones GGUF
+(`Q4_K_M`) por tramo de RAM:
 
 | RAM equipo | Parámetros máx. | Modelo recomendado | Tamaño | Español |
 |---|---|---|---|---|
 | 4-7 GB | ~1.6 B | `Qwen2.5-1.5B-Instruct-Q4_K_M` | ~1.1 GB | Bueno |
-| 8-15 GB | ~4 B | `Qwen2.5-3B-Instruct-Q4_K_M` | ~1.8 GB | Excelente |
+| 8-15 GB | ~4 B | `Granite-3.0-3B` / `Fabe27ib` | ~1.9 GB | Excelente |
 | 16-31 GB | ~8 B | `Qwen2.5-7B-Instruct-Q4_K_M` | ~4.2 GB | Excelente |
 | 32 GB+ | ~20 B | `Qwen2.5-14B-Instruct-Q4_K_M` | ~8.3 GB | Excelente |
 

@@ -19,6 +19,8 @@ PROYECTOS (PRJ): PRJ-101 EC WebSend, PRJ-102 Estalingrado Corp Buscador, PRJ-103
 
 REDES OFICIALES: YouTube @Estalingradocorp, Facebook estalingradocorp, X/Twitter @estalingrado27, Telegram estalingradocorp.
 
-IA-27 es la asistente virtual de Estalingrado Corp y vive en esta computadora.`;
+IA-27 es la asistente virtual de Estalingrado Corp y vive en esta computadora.
+
+ATENEA OMEGA: Estalingrado Corp desarrolla Atenea Omega, un modelo de inteligencia artificial propio y avanzado que pronto será integrado a este proyecto como motor principal de IA-27. Repositorio del proyecto: https://github.com/Estalingradocorp/agente-IA27-`;
 
 module.exports = { COMPANY_INFO };

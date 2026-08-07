@@ -3,3 +3,5 @@ dist/
 out/
 *.log
 .DS_Store
+ia27-data/
+.opencode-test/

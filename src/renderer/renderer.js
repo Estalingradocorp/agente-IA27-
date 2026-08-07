@@ -421,10 +421,33 @@
   }
 
   // ---------------- status ----------------
+  function updateNetStatus(status) {
+    const el = $("net-status");
+    if (!el) return;
+    const text = el.querySelector(".status-text");
+    const worker = status && status.net ? status.net.worker : null;
+    const main = status && status.net ? status.net.main : null;
+    const online = (worker && worker.online) || (main && main.online);
+    const offline = worker !== null || main !== null;
+    if (online) {
+      el.classList.remove("offline");
+      el.classList.add("online");
+      text.textContent = "● internet en línea";
+    } else if (offline) {
+      el.classList.add("offline");
+      el.classList.remove("online");
+      text.textContent = "○ sin conexión a internet";
+    } else {
+      el.classList.remove("online", "offline");
+      text.textContent = "comprobando internet…";
+    }
+  }
+
   function handleStatus(data) {
     const el = $("model-status");
     const text = el.querySelector(".status-text");
     el.className = "model-status";
+    updateNetStatus(data);
 
     if (data.state === "ready") {
       el.classList.add("ready");

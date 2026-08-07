@@ -1,9 +1,9 @@
 const path = require("node:path");
 
 const DEFAULT_SETTINGS = {
-  contextSize: 8192,
+  contextSize: 4096,
   batchSize: 512,
-  gpuLayers: 0,
+  gpuLayers: 99,
   threads: 0,
   temperature: 0.7,
   topK: 40,
@@ -33,6 +33,13 @@ function aplicarPerfil(settings) {
   return merged;
 }
 
+function clampMaxTokens(maxTokens, contextSize) {
+  const ctx = Number(contextSize) || 4096;
+  const v = Number(maxTokens) || 2048;
+  const cap = Math.max(1024, Math.floor(ctx * 0.6));
+  return Math.min(Math.max(64, v), cap);
+}
+
 class LLMEngine {
   constructor({ modelPath, settings = {}, onProgress, onStage }) {
     this.modelPath = modelPath;
@@ -54,13 +61,15 @@ class LLMEngine {
     this.onProgress?.(0.02);
 
     let gpuUsed = false;
-    const gpuKinds = ["vulkan", "cuda"];
+    this.gpuBackend = null;
     let gpuErr = null;
+    const gpuKinds = ["vulkan", "cuda"];
     for (const gpuKind of gpuKinds) {
       if (!wantGpu) break;
       try {
         this.llama = await getLlama({ gpu: gpuKind });
         gpuUsed = true;
+        this.gpuBackend = gpuKind;
         break;
       } catch (err) {
         gpuErr = err;
@@ -90,6 +99,7 @@ class LLMEngine {
       });
     } catch (loadErr) {
       if (wantGpu && gpuUsed) {
+        this.gpuBackend = null;
         this.onStage?.("Carga en GPU fallida; usando CPU.");
         this.model = await this.llama.loadModel({
           modelPath: this.modelPath,
@@ -144,6 +154,7 @@ class LLMEngine {
       size: this.model.size,
       trainContextSize: this.model.trainContextSize,
       contextSize: this.settings.contextSize,
+      gpuBackend: this.gpuBackend || null,
     };
   }
 
@@ -156,4 +167,4 @@ class LLMEngine {
   }
 }
 
-module.exports = { LLMEngine, DEFAULT_SETTINGS, PERFILES, aplicarPerfil };
+module.exports = { LLMEngine, DEFAULT_SETTINGS, PERFILES, aplicarPerfil, clampMaxTokens };

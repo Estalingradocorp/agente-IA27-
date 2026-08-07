@@ -7,6 +7,8 @@ const { MemoryStore } = require("./memory");
 const { Agent } = require("./agent");
 const { WorkerBridge } = require("./bridge");
 const { extractText } = require("./documents");
+const { clampMaxTokens } = require("./engine");
+const { checkInternet } = require("./tools");
 const { idleLine } = require("./persona");
 
 class IACore extends EventEmitter {
@@ -23,6 +25,7 @@ class IACore extends EventEmitter {
     this.state = "idle";
     this.openPath = openPath;
     this.consentPrompt = consent;
+    this.netStatus = { worker: null, main: null };
   }
 
   emitStage(stage, message, progress) {
@@ -95,6 +98,10 @@ class IACore extends EventEmitter {
       const result = await this.openPath(m.path);
       this.bridge.respondOpen(m.id, result);
     });
+    this.bridge.on("net", (m) => {
+      this.netStatus.worker = { online: !!m.online, fuente: m.fuente || null };
+      this.emit("status", this.getStatus());
+    });
 
     this.bridge.start(path.join(__dirname, "worker.js"));
 
@@ -119,6 +126,16 @@ class IACore extends EventEmitter {
     this.ready = true;
     this.state = "ready";
     this.emit("status", { state: "ready", model: this.resolvedModel.tag });
+
+    checkInternet()
+      .then((n) => {
+        this.netStatus.main = { online: !!n.online, fuente: n.fuente || null };
+        this.emit("status", this.getStatus());
+      })
+      .catch(() => {
+        this.netStatus.main = { online: false, fuente: null };
+        this.emit("status", this.getStatus());
+      });
   }
 
   async send(payload) {
@@ -131,8 +148,8 @@ class IACore extends EventEmitter {
     if (files.length) {
       const settings = this.memory.getSettings();
       const contextSize = Number(settings.contextSize || 8192);
-      const maxTokens = Number(settings.maxTokens || 2048);
-      const docBudgetTokens = Math.max(1200, contextSize - maxTokens - 1400);
+      const maxTokens = clampMaxTokens(settings.maxTokens, contextSize);
+      const docBudgetTokens = Math.max(1200, contextSize - maxTokens - 1200);
       const docBudgetChars = Math.floor(docBudgetTokens * 3.5);
       const docs = [];
       let used = 0;
@@ -200,6 +217,7 @@ class IACore extends EventEmitter {
       availableModels: this.availableModels || this.resolvedModel?.availableModels || [],
       idleLine: this.ready ? idleLine() : null,
       perfilRecomendado,
+      net: this.netStatus,
     };
   }
 
